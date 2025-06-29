@@ -32,7 +32,6 @@ class Permission(Base):
     __tablename__ = "permissions"
     id: Mapped[int] = mapped_column(primary_key=True)
     permission_id: Mapped[str] = mapped_column(nullable=False, unique=True, index=True)
-    name: Mapped[str] = mapped_column(nullable=False, unique=True)
     description: Mapped[str] = mapped_column(nullable=True)
     tokens: Mapped[list["Token"]] = relationship(
         "Token", secondary=token_permission_association, back_populates="permissions"
