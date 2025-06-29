@@ -65,20 +65,18 @@ async def get_raid_tome_loot_pools(
 
 
 @PoolRouter.post(
-    "/{type}/{location}/{page}",
+    "/crowdsource",
     summary="Crowdsource Loot Pool",
     description="Upload Crowdsource data for the loot pool for a specific location and page.",
     dependencies=[Depends(require_permission("pool.item.crowdsource"))],
 )
 async def crowdsource_item_loot_pool(
-    type: LootPoolType,
-    location: str,
-    page: int,
-    items: CrowdSourceLootPoolData,
+    items: list[CrowdSourceLootPoolData],
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> V1Response:
-    await crowdsource_loot_pool(type, location, page, items, session)
-    return V1Response.from_dict(data={"type": type, "location": location, "page": page, "items": items})
+    for item in items:
+        await crowdsource_loot_pool(item.type, item.location, item.page, item, session)
+    return V1Response.from_dict(data={"type": item.type, "location": item.location, "page": item.page, "items": items})
 
 
 @PoolRouter.delete(

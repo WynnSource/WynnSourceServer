@@ -37,7 +37,7 @@ async def crowdsource_loot_pool(
             raid_aspect_pool={"loot": {}},
             raid_tome_pool={"loot": {}},
         )
-    items = item_data.model_dump(exclude_none=True, exclude_unset=True)
+    items = item_data.model_dump(exclude_none=True, exclude_unset=True, include={"shiny", "items"})
     match type:
         case LootPoolType.ITEM:
             if not pool.lr_item_pool["loot"].get(location):
