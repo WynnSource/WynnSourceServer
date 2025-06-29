@@ -53,9 +53,11 @@ async def get_permissions(
     description="Get the permissions associated with the current user's token.",
 )
 async def get_self_permissions(
-    token: Token = Depends(get_user),
+    token: Token | None = Depends(get_user),
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> PermissionListResponse:
+    if not token:
+        return PermissionListResponse(data=PermissionListData(token="", permissions=[]))
     permissions = token.permissions
     permissions = [perm.permission_id for perm in permissions]
     return PermissionListResponse(data=PermissionListData(token=token.token, permissions=permissions))

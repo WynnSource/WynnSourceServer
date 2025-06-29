@@ -2,8 +2,9 @@ import re
 from functools import lru_cache
 from typing import Annotated
 
+from app.config.admin import ADMIN_CONFIG
 from app.log import logger
-from app.models.manage import Token, get_token
+from app.models.manage import Permission, Token, get_token
 from app.service.db import get_session
 from fastapi import Depends, Header, HTTPException
 
@@ -37,7 +38,9 @@ def require_permission(required_perms: str | set[str]):
 
         if not token:
             raise HTTPException(status_code=401, detail="Missing API Token")
-
+        if token == ADMIN_CONFIG.token:
+            logger.debug("Admin token used, skipping permission check")
+            return Token(token="redacted", permissions=[Permission(permission_id="*")])
         user_token = await get_token(session, token)
         if not user_token:
             raise HTTPException(status_code=401, detail="Invalid API Token")
@@ -58,6 +61,9 @@ def require_permission(required_perms: str | set[str]):
 
 
 async def get_user(token: Annotated[str, Header(alias="X-API-KEY")], session=Depends(get_session)) -> Token | None:
+    if token == ADMIN_CONFIG.token:
+        logger.debug("Admin token used, skipping permission check")
+        return Token(token="redacted", permissions=[Permission(permission_id="*")])
     return await get_token(session, token)
 
 
