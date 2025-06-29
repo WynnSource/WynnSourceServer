@@ -76,7 +76,9 @@ async def crowdsource_item_loot_pool(
 ) -> V1Response:
     for item in items:
         await crowdsource_loot_pool(item.type, item.location, item.page, item, session)
-    return V1Response.from_dict(data={"type": item.type, "location": item.location, "page": item.page, "items": items})
+    return V1Response.from_message(
+        message=f"Successfully crowdsourced {len(items)} pages for loot pool.",
+    )
 
 
 @PoolRouter.delete(
