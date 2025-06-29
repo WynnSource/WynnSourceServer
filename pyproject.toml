@@ -1,0 +1,42 @@
+[project]
+name = "wynnsource_server"
+version = "0.0.1"
+description = "The server backend for WynnSource Project"
+readme = "README.md"
+requires-python = ">=3.12, <3.13"
+license = "AGPL-3.0"
+authors = [{ name = "FYWinds", email = "i@windis.cn" }]
+keywords = ["wynncraft", "wynnsource", "wynnsource-server"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "apscheduler>=3.11.0",
+    "fastapi[standard]>=0.115.12",
+    "loguru>=0.7.3",
+    "psycopg>=3.2.9",
+    "pydantic-settings>=2.10.1",
+    "sqlalchemy>=2.0.40",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["W", "E", "F", "UP", "C4", "T10", "T20", "PYI", "PT", "Q"]
+ignore = ["E402", "UP037"]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.pytest.ini_options]
+addopts = "-n 4 --cov=src --cov-report xml:cov.xml"
+
+[dependency-groups]
+dev = ["aiosqlite>=0.21.0"]
+test = ["pytest>=8.3.5", "pytest-cov>=6.1.1", "pytest-xdist>=3.6.1"]
