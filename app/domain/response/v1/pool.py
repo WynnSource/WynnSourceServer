@@ -29,9 +29,15 @@ class ItemLootPoolResponse(V1Response[ItemLootPoolData]):
     """
 
 
+class RaidLootPoolPagedData(BaseModel):
+    items: dict[Rarity, list[str]]
+
+    model_config = ConfigDict(use_enum_values=True)
+
+
 # Could be used for both aspects and tomes
 class RaidLootPoolData(BaseModel):
-    loot: dict[RaidRegion, dict[int, dict[Rarity, list[str]]]]
+    loot: dict[RaidRegion, dict[int, RaidLootPoolPagedData]]
 
     model_config = ConfigDict(use_enum_values=True)
 
