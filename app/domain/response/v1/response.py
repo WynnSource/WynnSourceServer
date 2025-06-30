@@ -9,7 +9,7 @@ from starlette.status import HTTP_200_OK
 from .data import Data
 
 
-class V1Response[T: BaseModel | dict](BaseModel):
+class V1Response[T: (BaseModel, dict)](BaseModel):
     """
     Base class for all v1 response models.
     """
@@ -26,22 +26,22 @@ class V1Response[T: BaseModel | dict](BaseModel):
         )
 
     @classmethod
-    def from_message(cls, message: str, response_code: int = HTTP_200_OK) -> "V1Response":
+    def from_message(cls, message: str) -> "V1Response[dict]":
         """
         Create a response with a message.
         """
-        return V1Response(
+        return V1Response[dict](
             data={"message": message},
             code=ErrorCodes.OK,
             timestamp=int(datetime.now(timezone.utc).timestamp()),
         )
 
     @classmethod
-    def from_dict(cls, data: dict, response_code: int = HTTP_200_OK) -> "V1Response":
+    def from_dict(cls, data: dict) -> "V1Response[dict]":
         """
         Create a response from a dictionary.
         """
-        return V1Response(
+        return V1Response[dict](
             data=data,
             code=ErrorCodes.OK,
             timestamp=int(datetime.now(timezone.utc).timestamp()),

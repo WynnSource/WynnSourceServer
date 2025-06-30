@@ -11,6 +11,7 @@ from app.core.auth import (
     require_permission,
 )
 from app.core.db import get_session
+from app.core.metadata import with_metadata
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -27,10 +28,11 @@ ManageRouter = APIRouter(prefix="/manage", tags=["management"])
 # Permission Management Endpoints
 @ManageRouter.get(
     "/perm/{user_token}/list",
-    dependencies=[Depends(require_permission("management.permissions.read.any"))],
+    dependencies=[Depends(require_permission)],
     summary="Get Permissions for Token",
     description="Get the permissions associated with a specific user token.",
 )
+@with_metadata(permission="management.permissions.read.any")
 async def get_permissions(
     user_token: str,
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
@@ -67,10 +69,11 @@ async def get_self_permissions(
 
 @ManageRouter.put(
     "/perm/{user_token}/add",
-    dependencies=[Depends(require_permission("management.permissions.write.any"))],
+    dependencies=[Depends(require_permission)],
     summary="Add Permission to Token",
     description="Add a permission to a specific user token.",
 )
+@with_metadata(permission="management.permissions.write.any")
 async def add_permission(
     user_token: str,
     permission: str,
@@ -83,10 +86,11 @@ async def add_permission(
 
 @ManageRouter.post(
     "/perm/{user_token}/add",
-    dependencies=[Depends(require_permission("management.permissions.write.any"))],
+    dependencies=[Depends(require_permission)],
     summary="Add Permission to Token (POST) (Bulk)",
     description="Add permissions to a specific user token using POST method.",
 )
+@with_metadata(permission="management.permissions.write.any")
 async def add_permission_bulk(
     user_token: str,
     permissions: list[str],
@@ -99,10 +103,11 @@ async def add_permission_bulk(
 
 @ManageRouter.delete(
     "/perm/{user_token}/revoke",
-    dependencies=[Depends(require_permission("management.permissions.write.any"))],
+    dependencies=[Depends(require_permission)],
     summary="Revoke Permission from Token",
     description="Revoke a permission from a specific user token.",
 )
+@with_metadata(permission="management.permissions.write.any")
 async def revoke_permission(
     user_token: str,
     permission: str,
@@ -115,10 +120,11 @@ async def revoke_permission(
 
 @ManageRouter.post(
     "/perm/{user_token}/revoke",
-    dependencies=[Depends(require_permission("management.permissions.write.any"))],
+    dependencies=[Depends(require_permission)],
     summary="Revoke Permission from Token (POST) (Bulk)",
     description="Revoke permissions from a specific user token using POST method.",
 )
+@with_metadata(permission="management.permissions.write.any")
 async def revoke_permission_bulk(
     user_token: str,
     permissions: list[str],
@@ -132,10 +138,11 @@ async def revoke_permission_bulk(
 # Token Management Endpoints
 @ManageRouter.get(
     "/token/list",
-    dependencies=[Depends(require_permission("management.tokens.read.any"))],
+    dependencies=[Depends(require_permission)],
     summary="List All Tokens",
     description="Get a list of all user tokens.",
 )
+@with_metadata(permission="management.tokens.read.any")
 async def list_all_tokens(
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> TokenListResponse:
@@ -145,10 +152,11 @@ async def list_all_tokens(
 
 @ManageRouter.put(
     "/token/{user_token}/create",
-    dependencies=[Depends(require_permission("management.tokens.write.any"))],
+    dependencies=[Depends(require_permission)],
     summary="Create Token",
     description="Create a new user token.",
 )
+@with_metadata(permission="management.tokens.write.any")
 async def create_token(
     user_token: str,
     permission: str,
@@ -161,10 +169,11 @@ async def create_token(
 
 @ManageRouter.post(
     "/token/{user_token}/create",
-    dependencies=[Depends(require_permission("management.tokens.write.any"))],
+    dependencies=[Depends(require_permission)],
     summary="Create Token (POST) (Bulk)",
     description="Create new user tokens using POST method.",
 )
+@with_metadata(permission="management.tokens.write.any")
 async def create_token_bulk(
     user_tokens: list[str],
     permissions: list[str],
@@ -180,10 +189,11 @@ async def create_token_bulk(
 
 @ManageRouter.delete(
     "/token/{user_token}/remove",
-    dependencies=[Depends(require_permission("management.tokens.write.any"))],
+    dependencies=[Depends(require_permission)],
     summary="Remove Token",
     description="Remove a specific user token.",
 )
+@with_metadata(permission="management.tokens.write.any")
 async def delete_token(
     user_token: str,
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
@@ -194,10 +204,11 @@ async def delete_token(
 
 @ManageRouter.post(
     "/token/{user_token}/remove",
-    dependencies=[Depends(require_permission("management.tokens.write.any"))],
+    dependencies=[Depends(require_permission)],
     summary="Remove Token (POST) (Bulk)",
     description="Remove specific user tokens using POST method.",
 )
+@with_metadata(permission="management.tokens.write.any")
 async def delete_token_bulk(
     user_tokens: list[str],
     session: async_sessionmaker[AsyncSession] = Depends(get_session),

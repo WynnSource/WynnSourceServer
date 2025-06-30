@@ -8,7 +8,7 @@ from app.core.db import init_db
 from app.docs.openapi import custom_openapi
 from app.domain.constants import __DESCRIPTION__, __NAME__, __VERSION__
 from app.domain.response import STATUS_RESPONSE, StatusResponse
-from app.module.api import V1Router, v1_exception_handler, v1_validation_exception_handler
+from app.module.api import V1Router, http_exception_handler, validation_exception_handler
 
 
 @asynccontextmanager
@@ -35,9 +35,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(V1Router)
-app.exception_handler(HTTPException)(v1_exception_handler)
-app.exception_handler(RequestValidationError)(v1_validation_exception_handler)
-app.exception_handler(ResponseValidationError)(v1_validation_exception_handler)
+app.exception_handler(HTTPException)(http_exception_handler)
+app.exception_handler(RequestValidationError)(validation_exception_handler)
+app.exception_handler(ResponseValidationError)(validation_exception_handler)
 app.openapi = custom_openapi(app)
 
 
