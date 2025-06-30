@@ -1,5 +1,6 @@
 from typing import Sequence
 
+from app.core.db import Base
 from sqlalchemy import Column, ForeignKey, Table, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import (
@@ -8,8 +9,6 @@ from sqlalchemy.orm import (
     mapped_column,
     relationship,
 )
-
-from app.models.base import Base
 
 token_permission_association = Table(
     "token_permission_association",
@@ -134,15 +133,3 @@ async def remove_permission_for_token(
             result.permissions.remove(permission)
 
         await session.commit()
-
-
-__all__ = [
-    "Token",
-    "Permission",
-    "add_token",
-    "get_token",
-    "list_tokens",
-    "remove_token",
-    "remove_permission_for_token",
-    "add_permission_for_token",
-]

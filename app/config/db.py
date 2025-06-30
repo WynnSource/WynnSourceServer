@@ -15,6 +15,7 @@ class DbConfig(BaseSettings):
     sqlite_dsn: str = Field(
         default="sqlite+aiosqlite:///./wcs.sqlite3",
         description="SQLite connection string (Do not use this in production, only for testing purposes)",
+        alias="WCS_DB_SQLITE_DSN",
     )
 
 

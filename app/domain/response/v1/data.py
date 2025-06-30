@@ -3,10 +3,8 @@ from pydantic import BaseModel
 
 class Data(BaseModel):
     """
-    Base class for all v1 data models.
+    Base data model for v1 responses.
+    This can be extended to include common fields for all responses.
     """
 
-
-__all__ = [
-    "Data",
-]
+    pass

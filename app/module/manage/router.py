@@ -1,23 +1,25 @@
-from app.domain.response.v1.management import (
-    PermissionListData,
-    PermissionListResponse,
-    TokenListData,
-    TokenListResponse,
-)
-from app.models.manage import (
+from app.core.auth import (
     Permission,
     Token,
     add_permission_for_token,
     add_token,
     get_token,
+    get_user,
     list_tokens,
     remove_permission_for_token,
     remove_token,
+    require_permission,
 )
-from app.service.db import get_session
-from app.utils.auth_utils import get_user, require_permission
+from app.core.db import get_session
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from .domain.response import (
+    PermissionListData,
+    PermissionListResponse,
+    TokenListData,
+    TokenListResponse,
+)
 
 ManageRouter = APIRouter(prefix="/manage", tags=["management"])
 

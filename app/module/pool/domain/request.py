@@ -1,8 +1,9 @@
 from typing import Optional
 
-from app.domain.enums.pool import LootPoolType, Rarity
-from app.domain.response.v1.pool import ShinyData
+from app.domain.enums import LootPoolType, Rarity
 from pydantic import BaseModel
+
+from .common import ShinyData
 
 
 class CrowdSourceLootPoolData(BaseModel):

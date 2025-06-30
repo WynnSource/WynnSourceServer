@@ -1,14 +1,15 @@
 from datetime import datetime, timezone
 
 from app.domain.constants import __VERSION__
-from app.domain.response.v1.data import Data
-from app.domain.response.v1.error import ErrorCodes
+from app.domain.enums import ErrorCodes
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.status import HTTP_200_OK
 
+from .data import Data
 
-class V1Response[T](BaseModel):
+
+class V1Response[T: BaseModel | dict](BaseModel):
     """
     Base class for all v1 response models.
     """

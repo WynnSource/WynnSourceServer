@@ -1,8 +1,9 @@
 from app.domain.constants import __DESCRIPTION__, __NAME__, __VERSION__
+from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
 
-def custom_openapi(app):
+def custom_openapi(app: FastAPI):
     def openapi():
         nonlocal app
 

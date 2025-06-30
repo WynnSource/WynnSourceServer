@@ -2,11 +2,12 @@ import re
 from functools import lru_cache
 from typing import Annotated
 
-from app.config.admin import ADMIN_CONFIG
-from app.log import logger
-from app.models.manage import Permission, Token, get_token
-from app.service.db import get_session
+from app.config import ADMIN_CONFIG
+from app.core.db import get_session
+from app.log import LOGGER
 from fastapi import Depends, Header, HTTPException
+
+from .model import Permission, Token, get_token
 
 
 @lru_cache(maxsize=256)
@@ -38,9 +39,11 @@ def require_permission(required_perms: str | set[str]):
 
         if not token:
             raise HTTPException(status_code=401, detail="Missing API Token")
+
         if token == ADMIN_CONFIG.token:
-            logger.debug("Admin token used, skipping permission check")
+            LOGGER.debug("Admin token used, skipping permission check")
             return Token(token="redacted", permissions=[Permission(permission_id="*")])
+
         user_token = await get_token(session, token)
         if not user_token:
             raise HTTPException(status_code=401, detail="Invalid API Token")
@@ -51,23 +54,10 @@ def require_permission(required_perms: str | set[str]):
             required_perms = {required_perms}
 
         if not has_permission(required_perms, user_perms):
-            logger.warning(f"User {user_token.token} does not have required permissions: {required_perms}")
-            logger.debug(f"User {user_token.token} permissions: {user_perms}")
+            LOGGER.warning(f"User {user_token.token} does not have required permissions: {required_perms}")
+            LOGGER.debug(f"User {user_token.token} permissions: {user_perms}")
             raise HTTPException(status_code=403, detail="Insufficient permissions")
 
         return user_token
 
     return check_permission
-
-
-async def get_user(token: Annotated[str, Header(alias="X-API-KEY")], session=Depends(get_session)) -> Token | None:
-    if token == ADMIN_CONFIG.token:
-        logger.debug("Admin token used, skipping permission check")
-        return Token(token="redacted", permissions=[Permission(permission_id="*")])
-    return await get_token(session, token)
-
-
-__all__ = [
-    "require_permission",
-    "get_user",
-]

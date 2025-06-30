@@ -1,12 +1,11 @@
+from app.core.db import Base
+from app.domain.enums import LootPoolType
 from sqlalchemy import JSON, BigInteger, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
 )
-
-from app.domain.enums.pool import LootPoolType
-from app.models.base import Base
 
 
 class LootPoolData(Base):

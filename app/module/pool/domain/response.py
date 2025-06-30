@@ -1,13 +1,10 @@
 from typing import Optional
 
-from app.domain.enums.pool import LootPoolRegion, RaidRegion, Rarity
-from app.domain.response.v1.response import V1Response
+from app.domain.enums import LootPoolRegion, RaidRegion, Rarity
+from app.domain.response import Response
 from pydantic import BaseModel, ConfigDict
 
-
-class ShinyData(BaseModel):
-    item: str
-    tracker: str
+from .common import ShinyData
 
 
 class LootPoolPagedData(BaseModel):
@@ -23,7 +20,7 @@ class ItemLootPoolData(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
 
-class ItemLootPoolResponse(V1Response[ItemLootPoolData]):
+class ItemLootPoolResponse(Response[ItemLootPoolData]):
     """
     Response model for item loot pools.
     """
@@ -42,7 +39,7 @@ class RaidLootPoolData(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
 
-class RaidLootPoolResponse(V1Response[RaidLootPoolData]):
+class RaidLootPoolResponse(Response[RaidLootPoolData]):
     """
     Response model for raid loot pools.
     """

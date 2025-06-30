@@ -1,5 +1,4 @@
-from app.domain.response.v1.data import Data
-from app.domain.response.v1.response import V1Response
+from app.domain.response import Data, Response
 
 
 class PermissionListData(Data):
@@ -11,7 +10,7 @@ class PermissionListData(Data):
     permissions: list[str]
 
 
-class PermissionListResponse(V1Response[PermissionListData]):
+class PermissionListResponse(Response[PermissionListData]):
     """
     Response model for a list of permissions.
     """
@@ -27,7 +26,7 @@ class TokenListData(Data):
     tokens: list[str]
 
 
-class TokenListResponse(V1Response[TokenListData]):
+class TokenListResponse(Response[TokenListData]):
     """
     Response model for a list of tokens.
     """

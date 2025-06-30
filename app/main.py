@@ -4,12 +4,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 
+from app.core.db import init_db
 from app.docs.openapi import custom_openapi
 from app.domain.constants import __DESCRIPTION__, __NAME__, __VERSION__
-from app.domain.response.default_response import STATUS_RESPONSE
-from app.domain.response.v1 import V1_Status_Response
-from app.router.api import V1Router, v1_exception_handler, v1_validation_exception_handler
-from app.service.db import init_db
+from app.domain.response import STATUS_RESPONSE, StatusResponse
+from app.module.api import V1Router, v1_exception_handler, v1_validation_exception_handler
 
 
 @asynccontextmanager
@@ -43,7 +42,7 @@ app.openapi = custom_openapi(app)
 
 
 @app.get("/")
-async def read_root() -> V1_Status_Response:
+async def read_root() -> StatusResponse:
     return STATUS_RESPONSE
 
 

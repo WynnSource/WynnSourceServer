@@ -1,20 +1,21 @@
 from typing import Any
 
-from app.domain.enums.pool import LootPoolType
-from app.domain.request.v1.pool import CrowdSourceLootPoolData
-from app.domain.response.v1.pool import (
+from app.core.auth import require_permission
+from app.core.db import get_session
+from app.domain.enums import LootPoolType
+from app.domain.response import Response
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from .domain.request import CrowdSourceLootPoolData
+from .domain.response import (
     ItemLootPoolData,
     ItemLootPoolResponse,
     RaidLootPoolData,
     RaidLootPoolResponse,
 )
-from app.domain.response.v1.response import V1Response
-from app.models.pool import get_loot_pools, purge_loot_pools, update_loot_pools
-from app.service.db import get_session
-from app.service.pool import crowdsource_loot_pool, get_current_rotation_date
-from app.utils.auth_utils import require_permission
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from .model import get_loot_pools, purge_loot_pools, update_loot_pools
+from .service import crowdsource_loot_pool, get_current_rotation_date
 
 PoolRouter = APIRouter(prefix="/pool", tags=["pool"])
 
@@ -73,10 +74,10 @@ async def get_raid_tome_loot_pools(
 async def crowdsource_item_loot_pool(
     items: list[CrowdSourceLootPoolData],
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> V1Response:
+) -> Response:
     for item in items:
         await crowdsource_loot_pool(item.type, item.location, item.page, item, session)
-    return V1Response.from_message(
+    return Response.from_message(
         message=f"Successfully crowdsourced {len(items)} pages for loot pool.",
     )
 
@@ -89,9 +90,9 @@ async def crowdsource_item_loot_pool(
 )
 async def purge_item_loot_pool(
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> V1Response:
+) -> Response:
     await purge_loot_pools(session, get_current_rotation_date())
-    return V1Response.from_message(
+    return Response.from_message(
         message=f"Purged current loot pool for date {get_current_rotation_date()}",
     )
 
@@ -106,8 +107,8 @@ async def update_loot_pool(
     type: LootPoolType,
     loot_pool_data: dict[str, Any],
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> V1Response:
+) -> Response:
     await update_loot_pools(session, type, loot_pool_data, get_current_rotation_date())
-    return V1Response.from_message(
+    return Response.from_message(
         message=f"Updated loot pool for type {type} with data: {loot_pool_data}",
     )
