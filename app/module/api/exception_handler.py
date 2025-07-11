@@ -22,7 +22,7 @@ def v1_validation_exception_handler(request: Request, exc: ValidationError) -> J
     This function can be extended to handle validation errors and return appropriate responses.
     """
     LOGGER.exception(exc)
-    return Response[dict](
+    return Response[list](
         data=jsonable_encoder(exc.errors()),
         code=ErrorCodes.VALIDATION_ERROR,
     ).to_response(HTTP_422_UNPROCESSABLE_ENTITY)

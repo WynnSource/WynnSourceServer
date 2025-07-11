@@ -9,7 +9,7 @@ from starlette.status import HTTP_200_OK
 from .data import Data
 
 
-class V1Response[T: (BaseModel, dict)](BaseModel):
+class V1Response[T: (BaseModel, dict, list)](BaseModel):
     """
     Base class for all v1 response models.
     """

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from app.core.auth import (
     Permission,
     Token,
@@ -80,8 +82,10 @@ async def add_permission(
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> PermissionListResponse:
     permission_obj = Permission(permission_id=permission)
-    await add_permission_for_token(session, user_token, permission_obj)
-    return PermissionListResponse(data=PermissionListData(token=user_token, permissions=[permission]))
+    token = await add_permission_for_token(session, user_token, permission_obj)
+    return PermissionListResponse(
+        data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
+    )
 
 
 @ManageRouter.post(
@@ -97,8 +101,10 @@ async def add_permission_bulk(
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> PermissionListResponse:
     permission_objs = [Permission(permission_id=perm) for perm in permissions]
-    await add_permission_for_token(session, user_token, permission_objs)
-    return PermissionListResponse(data=PermissionListData(token=user_token, permissions=permissions))
+    token = await add_permission_for_token(session, user_token, permission_objs)
+    return PermissionListResponse(
+        data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
+    )
 
 
 @ManageRouter.delete(
@@ -114,8 +120,10 @@ async def revoke_permission(
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> PermissionListResponse:
     permission_obj = Permission(permission_id=permission)
-    await remove_permission_for_token(session, user_token, permission_obj)
-    return PermissionListResponse(data=PermissionListData(token=user_token, permissions=[]))
+    token = await remove_permission_for_token(session, user_token, permission_obj)
+    return PermissionListResponse(
+        data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
+    )
 
 
 @ManageRouter.post(
@@ -131,8 +139,10 @@ async def revoke_permission_bulk(
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> PermissionListResponse:
     permission_objs = [Permission(permission_id=perm) for perm in permissions]
-    await remove_permission_for_token(session, user_token, permission_objs)
-    return PermissionListResponse(data=PermissionListData(token=user_token, permissions=[]))
+    token = await remove_permission_for_token(session, user_token, permission_objs)
+    return PermissionListResponse(
+        data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
+    )
 
 
 # Token Management Endpoints
@@ -159,10 +169,14 @@ async def list_all_tokens(
 @with_metadata(permission="management.tokens.write.any")
 async def create_token(
     user_token: str,
-    permission: str,
+    permission: Optional[str] = None,
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> TokenListResponse:
-    token = Token(token=user_token, permissions=[Permission(permission_id=permission)])
+    if (permission is None) or (permission == ""):
+        token = Token(token=user_token, permissions=[])
+    else:
+        token = Token(token=user_token, permissions=[Permission(permission_id=permission)])
+
     await add_token(session, token)
     return TokenListResponse(data=TokenListData(tokens=[token.token]))
 
@@ -199,7 +213,7 @@ async def delete_token(
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> TokenListResponse:
     await remove_token(session, user_token)
-    return TokenListResponse(data=TokenListData(tokens=[]))
+    return TokenListResponse(data=TokenListData(tokens=[user_token]))
 
 
 @ManageRouter.post(
@@ -214,4 +228,4 @@ async def delete_token_bulk(
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> TokenListResponse:
     await remove_token(session, user_tokens)
-    return TokenListResponse(data=TokenListData(tokens=[]))
+    return TokenListResponse(data=TokenListData(tokens=user_tokens))

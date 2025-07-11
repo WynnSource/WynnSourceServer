@@ -14,7 +14,10 @@
                 "--reload"
             ],
             "jinja": true,
-            "justMyCode": false
+            "justMyCode": false,
+            "env": {
+                "WCS_ADMIN_TOKEN": "local-test-token"
+            },
         }
     ]
 }

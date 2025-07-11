@@ -23,7 +23,7 @@ class Token(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     token: Mapped[str] = mapped_column(nullable=False, index=True, unique=True)
     permissions: Mapped[list["Permission"]] = relationship(
-        "Permission", secondary=token_permission_association, back_populates="tokens"
+        "Permission", secondary=token_permission_association, back_populates="tokens", lazy="joined"
     )
 
 
@@ -33,7 +33,7 @@ class Permission(Base):
     permission_id: Mapped[str] = mapped_column(nullable=False, unique=True, index=True)
     description: Mapped[str] = mapped_column(nullable=True)
     tokens: Mapped[list["Token"]] = relationship(
-        "Token", secondary=token_permission_association, back_populates="permissions"
+        "Token", secondary=token_permission_association, back_populates="permissions", lazy="joined"
     )
 
 
@@ -91,8 +91,8 @@ async def get_token(
 async def add_permission_for_token(
     async_session: async_sessionmaker[AsyncSession],
     token_str: str,
-    permission: Permission | list[Permission],
-) -> None:
+    permissions: Permission | list[Permission],
+) -> Token:
     stmt = select(Token).where(Token.token == token_str)
     async with async_session() as session:
         result = (await session.execute(stmt)).unique().scalar_one_or_none()
@@ -100,22 +100,25 @@ async def add_permission_for_token(
         if result is None:
             raise ValueError(f"Token {token_str} not found")
 
-        if permission in result.permissions:
-            return  # Permission already exists
+        if isinstance(permissions, Permission):
+            permissions = [permissions]
 
-        if isinstance(permission, list):
-            result.permissions.extend(perm for perm in permission if perm not in result.permissions)
-        else:
+        for permission in permissions:
+            if any(permission.permission_id == perm.permission_id for perm in result.permissions):
+                continue  # Permission already exists
+
             result.permissions.append(permission)
 
         await session.commit()
+
+        return result
 
 
 async def remove_permission_for_token(
     async_session: async_sessionmaker[AsyncSession],
     token_str: str,
-    permission: Permission | list[Permission],
-) -> None:
+    permissions: Permission | list[Permission],
+) -> Token:
     stmt = select(Token).where(Token.token == token_str)
     async with async_session() as session:
         result = (await session.execute(stmt)).unique().scalar_one_or_none()
@@ -123,13 +126,12 @@ async def remove_permission_for_token(
         if result is None:
             raise ValueError(f"Token {token_str} not found")
 
-        if permission not in result.permissions:
-            return  # Permission does not exist
+        if isinstance(permissions, Permission):
+            permissions = [permissions]
 
-        if isinstance(permission, list):
-            for perm in permission:
-                result.permissions.remove(perm)
-        else:
-            result.permissions.remove(permission)
+        for r_permission in result.permissions:
+            if any(r_permission.permission_id == perm.permission_id for perm in permissions):
+                result.permissions.remove(r_permission)
 
         await session.commit()
+        return result
