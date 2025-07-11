@@ -42,20 +42,31 @@ async def list_tokens(
 ) -> Sequence[Token]:
     stmt = select(Token).options(joinedload(Token.permissions))
     async with async_session() as session:
-        result = (await session.execute(stmt)).unique().scalars().all()
-    return result
+        tokens = (await session.execute(stmt)).unique().scalars().all()
+    return tokens
 
 
 async def add_token(
     async_session: async_sessionmaker[AsyncSession],
-    token: Token | list[Token],
+    tokens_str: str | list[str],
+    permissions_str: str | list[str] = [],
 ) -> None:
     async with async_session() as session:
         async with session.begin():
-            if isinstance(token, list):
-                session.add_all(token)
-            else:
-                session.add(token)
+            if isinstance(tokens_str, str):
+                tokens_str = [tokens_str]
+            if isinstance(permissions_str, str):
+                permissions_str = [permissions_str] if permissions_str else []
+
+            tokens = [
+                Token(
+                    token=token_str,
+                    permissions=[await get_or_create_permission(async_session, perm) for perm in permissions_str],
+                )
+                for token_str in tokens_str
+            ]
+
+            session.add_all(tokens)
 
 
 async def remove_token(
@@ -69,12 +80,12 @@ async def remove_token(
         else:
             stmt = select(Token).where(Token.token == token_str)
 
-        result = (await session.execute(stmt)).unique().scalars().all()
+        tokens = (await session.execute(stmt)).unique().scalars().all()
 
-        if not result:
+        if not tokens:
             raise ValueError(f"Token {token_str} not found")
 
-        await session.delete(result)
+        await session.delete(tokens)
         await session.commit()
 
 
@@ -84,54 +95,87 @@ async def get_token(
 ) -> Token | None:
     stmt = select(Token).where(Token.token == token_str).options(joinedload(Token.permissions))
     async with async_session() as session:
-        result = (await session.execute(stmt)).unique().scalar_one_or_none()
-    return result
+        token = (await session.execute(stmt)).unique().scalar_one_or_none()
+    return token
 
 
 async def add_permission_for_token(
     async_session: async_sessionmaker[AsyncSession],
     token_str: str,
-    permissions: Permission | list[Permission],
+    requested_permissions_str: str | list[str],
 ) -> Token:
     stmt = select(Token).where(Token.token == token_str)
     async with async_session() as session:
-        result = (await session.execute(stmt)).unique().scalar_one_or_none()
+        token = (await session.execute(stmt)).unique().scalar_one_or_none()
 
-        if result is None:
+        if token is None:
             raise ValueError(f"Token {token_str} not found")
 
-        if isinstance(permissions, Permission):
-            permissions = [permissions]
+        if isinstance(requested_permissions_str, str):
+            requested_permissions_str = [requested_permissions_str]
 
-        for permission in permissions:
-            if any(permission.permission_id == perm.permission_id for perm in result.permissions):
+        for requested_perm_str in requested_permissions_str:
+            if any(requested_perm_str == user_perm.permission_id for user_perm in token.permissions):
                 continue  # Permission already exists
 
-            result.permissions.append(permission)
+            permission = await get_or_create_permission(async_session, requested_perm_str)
+            token.permissions.append(permission)
 
         await session.commit()
 
-        return result
+        return token
 
 
 async def remove_permission_for_token(
     async_session: async_sessionmaker[AsyncSession],
     token_str: str,
-    permissions: Permission | list[Permission],
+    permissions_str: str | list[str],
 ) -> Token:
     stmt = select(Token).where(Token.token == token_str)
     async with async_session() as session:
-        result = (await session.execute(stmt)).unique().scalar_one_or_none()
+        token = (await session.execute(stmt)).unique().scalar_one_or_none()
 
-        if result is None:
+        if token is None:
             raise ValueError(f"Token {token_str} not found")
 
-        if isinstance(permissions, Permission):
-            permissions = [permissions]
+        if isinstance(permissions_str, str):
+            permissions_str = [permissions_str]
 
-        for r_permission in result.permissions:
-            if any(r_permission.permission_id == perm.permission_id for perm in permissions):
-                result.permissions.remove(r_permission)
+        for token_perm in token.permissions:
+            if token_perm.permission_id in permissions_str:
+                token.permissions.remove(token_perm)
 
         await session.commit()
-        return result
+        return token
+
+
+async def list_permissions(
+    async_session: async_sessionmaker[AsyncSession],
+) -> Sequence[Permission]:
+    stmt = select(Permission).options(joinedload(Permission.tokens))
+    async with async_session() as session:
+        permissions = (await session.execute(stmt)).unique().scalars().all()
+    return permissions
+
+
+async def get_permission(
+    async_session: async_sessionmaker[AsyncSession],
+    permission_id: str,
+) -> Permission | None:
+    stmt = select(Permission).where(Permission.permission_id == permission_id)
+    async with async_session() as session:
+        permission = (await session.execute(stmt)).unique().scalar_one_or_none()
+    return permission
+
+
+async def get_or_create_permission(
+    async_session: async_sessionmaker[AsyncSession],
+    permission_id: str,
+) -> Permission:
+    permission = await get_permission(async_session, permission_id)
+    if permission is None:
+        permission = Permission(permission_id=permission_id)
+        async with async_session() as session:
+            session.add(permission)
+            await session.commit()
+    return permission

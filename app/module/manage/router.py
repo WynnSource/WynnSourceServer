@@ -1,7 +1,6 @@
 from typing import Optional
 
 from app.core.auth import (
-    Permission,
     Token,
     add_permission_for_token,
     add_token,
@@ -81,8 +80,7 @@ async def add_permission(
     permission: str,
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> PermissionListResponse:
-    permission_obj = Permission(permission_id=permission)
-    token = await add_permission_for_token(session, user_token, permission_obj)
+    token = await add_permission_for_token(session, user_token, permission)
     return PermissionListResponse(
         data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
     )
@@ -100,8 +98,7 @@ async def add_permission_bulk(
     permissions: list[str],
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> PermissionListResponse:
-    permission_objs = [Permission(permission_id=perm) for perm in permissions]
-    token = await add_permission_for_token(session, user_token, permission_objs)
+    token = await add_permission_for_token(session, user_token, permissions)
     return PermissionListResponse(
         data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
     )
@@ -119,8 +116,7 @@ async def revoke_permission(
     permission: str,
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> PermissionListResponse:
-    permission_obj = Permission(permission_id=permission)
-    token = await remove_permission_for_token(session, user_token, permission_obj)
+    token = await remove_permission_for_token(session, user_token, permission)
     return PermissionListResponse(
         data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
     )
@@ -138,8 +134,7 @@ async def revoke_permission_bulk(
     permissions: list[str],
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> PermissionListResponse:
-    permission_objs = [Permission(permission_id=perm) for perm in permissions]
-    token = await remove_permission_for_token(session, user_token, permission_objs)
+    token = await remove_permission_for_token(session, user_token, permissions)
     return PermissionListResponse(
         data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
     )
@@ -172,13 +167,11 @@ async def create_token(
     permission: Optional[str] = None,
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> TokenListResponse:
-    if (permission is None) or (permission == ""):
-        token = Token(token=user_token, permissions=[])
+    if not permission:
+        await add_token(session, user_token, [])
     else:
-        token = Token(token=user_token, permissions=[Permission(permission_id=permission)])
-
-    await add_token(session, token)
-    return TokenListResponse(data=TokenListData(tokens=[token.token]))
+        await add_token(session, user_token, permission)
+    return TokenListResponse(data=TokenListData(tokens=[user_token]))
 
 
 @ManageRouter.post(
@@ -193,12 +186,8 @@ async def create_token_bulk(
     permissions: list[str],
     session: async_sessionmaker[AsyncSession] = Depends(get_session),
 ) -> TokenListResponse:
-    tokens = [
-        Token(token=token, permissions=[Permission(permission_id=perm) for perm in permissions])
-        for token in user_tokens
-    ]
-    await add_token(session, tokens)
-    return TokenListResponse(data=TokenListData(tokens=[token.token for token in tokens]))
+    await add_token(session, user_tokens, permissions)
+    return TokenListResponse(data=TokenListData(tokens=user_tokens))
 
 
 @ManageRouter.delete(
