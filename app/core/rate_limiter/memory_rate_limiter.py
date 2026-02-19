@@ -4,7 +4,7 @@ import time
 from fastapi import HTTPException, Request, Response
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 
-from .base import BaseRateLimiter, RateLimitKeyFunc, default_key_func
+from .base import BaseRateLimiter, RateLimitKeyFunc, ip_based_key_func
 
 
 class MemoryRateLimiter(BaseRateLimiter):
@@ -12,7 +12,7 @@ class MemoryRateLimiter(BaseRateLimiter):
     current_counts: dict[str, int]
     previous_counts: dict[str, int]
 
-    def __init__(self, times: int, seconds: int, key_func: RateLimitKeyFunc = default_key_func):
+    def __init__(self, times: int, seconds: int, key_func: RateLimitKeyFunc = ip_based_key_func):
         super().__init__(times, seconds, key_func)
         self.current_window = 0
         self.current_counts = {}

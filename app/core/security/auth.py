@@ -97,6 +97,8 @@ async def get_user(
         await update_user_ip(session, user, x_real_ip or request.client.host)
         if not user:
             raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="User not found for token")
+
+        request.state.user_id = user.id  # Store user ID in request state for later use (e.g. rate limiting)
         return user
 
 

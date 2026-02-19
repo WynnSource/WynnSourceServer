@@ -9,8 +9,8 @@ from fastapi.routing import APIRoute
 from app.core.cache import cached
 from app.core.metadata import EndpointMetadata
 from app.core.openapi import CACHE_DOCS, RATE_LIMIT_DOCS
-from app.core.rate_limiter import RateLimiter
-from app.core.security.auth import depends_permission
+from app.core.rate_limiter import RateLimiter, user_based_key_func
+from app.core.security.auth import depends_permission, get_user
 from app.schemas.constants import INJECTED_NAMESPACE
 from app.utils.time_utils import format_time
 
@@ -37,6 +37,7 @@ class DocedAPIRoute(APIRoute):
         meta.processed = True
 
         responses = responses or {}
+        dependencies = list(dependencies or [])
 
         # Inject caching
         if meta.cache:
@@ -84,15 +85,19 @@ class DocedAPIRoute(APIRoute):
                     responses[status_code]["description"] = doc["description"]
 
             description = self.add_description(
-                f"⏱️ Rate Limited: `{meta.rate_limit.limit}` requests per `{format_time(meta.rate_limit.period)}`.",
+                f"⏱️ Rate Limited: `{meta.rate_limit.limit}` requests per `{format_time(meta.rate_limit.period)}` "
+                + f" based on {'user' if meta.rate_limit.key_func == user_based_key_func else 'IP'}.",
                 description,
                 endpoint,
             )
 
-            dependencies = [
-                *list(dependencies or []),
+            if meta.rate_limit.key_func == user_based_key_func:
+                self.add_dependency(Depends(get_user), dependencies)  # Ensure user is loaded
+
+            self.add_dependency(
                 Depends(RateLimiter(meta.rate_limit.limit, meta.rate_limit.period, meta.rate_limit.key_func)),
-            ]
+                dependencies,
+            )
 
         super().__init__(
             path, endpoint, dependencies=dependencies, responses=responses, description=description, **kwargs
@@ -131,6 +136,10 @@ class DocedAPIRoute(APIRoute):
                 )
             setattr(injected_endpoint, "__signature__", sig.replace(parameters=new_params))
         return injected_endpoint
+
+    def add_dependency(self, dependency: params.Depends, dependencies: list[params.Depends]) -> None:
+        if dependency not in dependencies:
+            dependencies.append(dependency)
 
 
 __all__ = ["DocedAPIRoute"]

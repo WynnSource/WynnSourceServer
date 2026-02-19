@@ -1,7 +1,7 @@
 import dataclasses
 from collections.abc import Awaitable, Callable
 
-from app.core.rate_limiter.base import RateLimitKeyFunc, default_key_func
+from app.core.rate_limiter import RateLimitKeyFunc, ip_based_key_func
 
 
 @dataclasses.dataclass
@@ -72,7 +72,7 @@ def permission(permission: str | set[str] | None = None):
     return decorator
 
 
-def rate_limit(limit: int, period: int, key_func: RateLimitKeyFunc = default_key_func):
+def rate_limit(limit: int, period: int, key_func: RateLimitKeyFunc = ip_based_key_func):
     """
     Decorator to add rate limit metadata to an API endpoint.
     """

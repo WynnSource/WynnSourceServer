@@ -8,7 +8,7 @@ from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 
 from app.core.db.redis import RedisClient
 
-from .base import BaseRateLimiter, RateLimitKeyFunc, default_key_func
+from .base import BaseRateLimiter, RateLimitKeyFunc, ip_based_key_func
 
 LUA_SLIDING_WINDOW = """
 local key_prefix = KEYS[1]
@@ -59,7 +59,7 @@ class RedisRateLimiter(BaseRateLimiter):
             self._script = self.redis.register_script(LUA_SLIDING_WINDOW)
         return self._script
 
-    def __init__(self, times: int, seconds: int, key_func: RateLimitKeyFunc = default_key_func):
+    def __init__(self, times: int, seconds: int, key_func: RateLimitKeyFunc = ip_based_key_func):
         super().__init__(times, seconds, key_func)
 
     async def __call__(self, request: Request, response: Response) -> Response:
