@@ -28,10 +28,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-    "basedpyright>=1.38.1",
-    "ruff>=0.15.1",
-]
+dev = ["basedpyright>=1.38.1", "ruff>=0.15.1"]
 test = ["pytest>=8.3.5", "pytest-cov>=6.1.1", "pytest-xdist>=3.6.1"]
 
 
@@ -86,4 +83,6 @@ wynnsource-proto = { workspace = true, editable = true }
 
 [tool.basedpyright]
 typeCheckingMode = "basic"
+diagnosticMode = "workspace"
+include = ["app", "tests/*"]
 exclude = ["generated"]
