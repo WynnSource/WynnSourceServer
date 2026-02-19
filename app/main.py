@@ -3,27 +3,39 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
+from fastapi.staticfiles import StaticFiles
+from scalar_fastapi import AgentScalarConfig, get_scalar_api_reference
 
-from app.core.db import init_db
-from app.docs.openapi import custom_openapi
-from app.domain.constants import __DESCRIPTION__, __NAME__, __VERSION__
-from app.domain.response import STATUS_RESPONSE, StatusResponse
-from app.module.api import V1Router, http_exception_handler, validation_exception_handler
+from app.config import DB_CONFIG
+from app.core.db import RedisClient, close_db, init_db
+from app.core.openapi import custom_openapi
+from app.module.api.exception_handler import (
+    generic_exception_handler,
+    http_exception_handler,
+    validation_exception_handler,
+)
+from app.module.api.router import Router
+from app.schemas.constants import __DESCRIPTION__, __NAME__, __VERSION__
+from app.schemas.response import STATUS_RESPONSE, StatusResponse
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Lifespan context manager for FastAPI application.
-    Initializes the scheduler and sets it up to run in the background.
+    Lifespan context manager for application.
     """
-    scheduler = AsyncIOScheduler()
-    scheduler.start()
-    await init_db()
     try:
+        scheduler = AsyncIOScheduler()
+        scheduler.start()
+        await init_db()
+        if DB_CONFIG.redis_dsn is not None:
+            await RedisClient.init()
         yield
     finally:
         scheduler.shutdown(wait=False)
+        await close_db()
+        if DB_CONFIG.redis_dsn is not None:
+            await RedisClient.close()
 
 
 app = FastAPI(
@@ -31,19 +43,44 @@ app = FastAPI(
     description=__DESCRIPTION__,
     version=__VERSION__,
     docs_url=None,
-    redoc_url="/docs",
+    redoc_url=None,
     lifespan=lifespan,
+    license_info={
+        "name": "GNU Affero General Public License v3.0 (AGPL-v3)",
+        "identifier": "AGPL-3.0-or-later",
+        "url": "https://www.gnu.org/licenses/agpl-3.0.html",
+    },
 )
-app.include_router(V1Router)
+
+app.include_router(Router)
 app.exception_handler(HTTPException)(http_exception_handler)
 app.exception_handler(RequestValidationError)(validation_exception_handler)
 app.exception_handler(ResponseValidationError)(validation_exception_handler)
+app.exception_handler(Exception)(generic_exception_handler)
 app.openapi = custom_openapi(app)
 
 
 @app.get("/")
 async def read_root() -> StatusResponse:
     return STATUS_RESPONSE
+
+
+@app.get("/docs", include_in_schema=False)
+@app.get("/doc", include_in_schema=False)
+async def scalar_ui():
+    return get_scalar_api_reference(
+        title=f"{__NAME__} API Documentation",
+        openapi_url=app.openapi_url,
+        agent=AgentScalarConfig(disabled=True),
+        scalar_favicon_url="./static/favicon.ico",
+        default_open_all_tags=True,
+        authentication={
+            "preferredSecurityScheme": "APIKeyHeader",
+        },
+    )
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 if __name__ == "__main__":

@@ -54,6 +54,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+cov.xml
 
 # Translations
 *.mo
@@ -194,6 +195,14 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
 
-# Custom
+### Custom additions below ###
+# local sqlite test databases
 *.sqlite3
-.python-version # Python version file for uv
+# Python version file for uv
+.python-version 
+# Generated files, such as protobuf generated code
+generated/*
+!generated/wynnsource
+!generated/pyproject.toml
+generated/wynnsource/*
+generated/wynnsource/__init__.py

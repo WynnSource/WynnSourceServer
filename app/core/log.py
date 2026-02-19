@@ -4,7 +4,17 @@ import sys
 
 import loguru
 
-logger = loguru.logger
+from app.config import LOG_CONFIG
+
+LOGGER = loguru.logger
+
+LOGGER.remove()
+logger_id = LOGGER.add(
+    sys.stdout,
+    level=LOG_CONFIG.level,
+    diagnose=False,
+    format=LOG_CONFIG.format,
+)
 
 
 class LoguruHandler(logging.Handler):
@@ -12,7 +22,7 @@ class LoguruHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord):
         try:
-            level = logger.level(record.levelname).name
+            level = LOGGER.level(record.levelname).name
         except ValueError:
             level = record.levelno
 
@@ -21,17 +31,23 @@ class LoguruHandler(logging.Handler):
             frame = frame.f_back
             depth += 1
 
-        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+        LOGGER.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
-default_format: str = "<g>{time:YY-MM-DD HH:mm:ss}</g> [<lvl>{level}</lvl>] <c><u>{name}:{line}</u></c> | {message}"
+def setup_logging():
+    logging_root = logging.getLogger()
+    logging_root.setLevel(0)
+    logging_root.handlers = []
 
-logger.remove()
-logger_id = logger.add(
-    sys.stdout,
-    level=0,
-    diagnose=False,
-    format=default_format,
-)
+    logging_root.addHandler(LoguruHandler())
 
-__all__ = ["logger"]
+    # Remove handlers from all existing loggers to prevent duplicate logs
+    for name in logging.root.manager.loggerDict.keys():
+        logging.getLogger(name).handlers = []
+        logging.getLogger(name).propagate = True
+
+
+setup_logging()
+
+
+__all__ = ["LOGGER"]

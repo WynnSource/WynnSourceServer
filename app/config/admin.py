@@ -11,3 +11,7 @@ class AdminConfig(BaseSettings):
 
 
 ADMIN_CONFIG = AdminConfig()  # Debugging line to check the environment variable
+
+__all__ = [
+    "ADMIN_CONFIG",
+]

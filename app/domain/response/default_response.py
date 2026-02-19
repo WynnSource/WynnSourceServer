@@ -1,6 +1,0 @@
-from .v1 import EMPTY_RESPONSE, STATUS_RESPONSE
-
-__all__ = [
-    "STATUS_RESPONSE",
-    "EMPTY_RESPONSE",
-]

@@ -1,22 +1,29 @@
-from typing import Annotated, Optional
+from typing import Annotated
 
-from pydantic import Field, PostgresDsn
+from pydantic import Field, PostgresDsn, RedisDsn
 from pydantic_settings import BaseSettings
 
 
 class DbConfig(BaseSettings):
     postgres_dsn: Annotated[
-        Optional[PostgresDsn],
+        PostgresDsn,
         Field(
             description="PostgreSQL connection string (leaving empty will use builtin SQLite database)",
             alias="WCS_DB_POSTGRES_DSN",
         ),
-    ] = None
-    sqlite_dsn: str = Field(
-        default="sqlite+aiosqlite:///./wcs.sqlite3",
-        description="SQLite connection string (Do not use this in production, only for testing purposes)",
-        alias="WCS_DB_SQLITE_DSN",
-    )
+    ] = PostgresDsn("postgresql+asyncpg://user:password@localhost:5432/wcs_db")
+
+    redis_dsn: Annotated[
+        RedisDsn | None,
+        Field(
+            description="Redis connection string (leaving empty will disable Redis caching)",
+            alias="WCS_DB_REDIS_DSN",
+        ),
+    ] = RedisDsn("redis://localhost:6379/0")
 
 
 DB_CONFIG = DbConfig()
+
+__all__ = [
+    "DB_CONFIG",
+]

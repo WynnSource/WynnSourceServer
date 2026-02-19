@@ -1,9 +1,23 @@
-from app.module.manage import ManageRouter
-from app.module.pool import PoolRouter
 from fastapi import APIRouter
 
-# API Router for version 1
+from app.core import metadata
+from app.core.router import DocedAPIRoute
+from app.module.api.schema import ValidationErrorResponse
+from app.module.manage.router import ManageRouter
+from app.module.pool.router import PoolRouter
+from app.schemas.response import StatusResponse
 
-V1Router = APIRouter(prefix="/api/v1")
-V1Router.include_router(ManageRouter)
-V1Router.include_router(PoolRouter)
+Router = APIRouter(route_class=DocedAPIRoute, prefix="/api/v2", responses={422: {"model": ValidationErrorResponse}})
+Router.include_router(ManageRouter)
+Router.include_router(PoolRouter)
+
+
+@Router.get("/test")
+@metadata.rate_limit(10, 60)
+@metadata.cached(expire=60)
+@metadata.permission("api.test")
+async def test_endpoint() -> StatusResponse:
+    """
+    Test endpoint to verify API is working.
+    """
+    return StatusResponse()

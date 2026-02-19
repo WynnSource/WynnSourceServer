@@ -1,100 +1,55 @@
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, String, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.core.db import Base
-from app.domain.enums import LootPoolType
-from sqlalchemy import JSON, BigInteger, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy.orm import (
-    Mapped,
-    mapped_column,
-)
+from app.core.security.model import User
 
 
-class LootPoolData(Base):
-    """
-    Data model for loot pools.
-    """
+class Pool(Base):
+    __tablename__ = "pools"
 
-    __tablename__ = "loot_pools"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    starting_date: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
-    lr_item_pool: Mapped[dict] = mapped_column(JSON, nullable=False, default={})
-    raid_aspect_pool: Mapped[dict] = mapped_column(JSON, nullable=False, default={})
-    raid_tome_pool: Mapped[dict] = mapped_column(JSON, nullable=False, default={})
+    pool_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    region: Mapped[str] = mapped_column(String(50), nullable=False)
 
+    rotation_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    rotation_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-async def add_loot_pools(
-    async_session: async_sessionmaker[AsyncSession],
-    loot_pool_data: LootPoolData,
-) -> None:
-    async with async_session() as session:
-        async with session.begin():
-            stmt = select(LootPoolData).where(LootPoolData.starting_date == loot_pool_data.starting_date)
-            result = (await session.execute(stmt)).unique().scalar_one_or_none()
-            if result:
-                # Update existing record
-                result.lr_item_pool = loot_pool_data.lr_item_pool
-                result.raid_aspect_pool = loot_pool_data.raid_aspect_pool
-                result.raid_tome_pool = loot_pool_data.raid_tome_pool
-            else:
-                # Add new record
-                session.add(loot_pool_data)
-            await session.commit()
+    consensus_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    submission_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    needs_recalc: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    submissions: Mapped[list["PoolSubmission"]] = relationship(
+        "PoolSubmission",
+        back_populates="rotation",
+        cascade="save-update, merge",
+    )
+
+    __table_args__ = (UniqueConstraint("pool_type", "region", "rotation_start", name="uq_pool_rotation_key"),)
 
 
-async def get_loot_pools(
-    async_session: async_sessionmaker[AsyncSession],
-    rotation_date: int,
-) -> LootPoolData | None:
-    async with async_session() as session:
-        stmt = select(LootPoolData).where(LootPoolData.starting_date == rotation_date)
-        result = (await session.execute(stmt)).unique().scalar_one_or_none()
-        return result
+class PoolSubmission(Base):
+    __tablename__ = "pool_submissions"
 
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-async def update_loot_pools(
-    async_session: async_sessionmaker[AsyncSession],
-    loot_pool_type: LootPoolType,
-    loot_pool_data: dict,
-    rotation_date: int,
-) -> None:
-    async with async_session() as session:
-        async with session.begin():
-            match loot_pool_type:
-                case LootPoolType.ITEM:
-                    stmt = select(LootPoolData).where(LootPoolData.starting_date == rotation_date)
-                    result = (await session.execute(stmt)).unique().scalar_one_or_none()
-                    if result:
-                        result.lr_item_pool = loot_pool_data
-                case LootPoolType.RAID_ASPECT:
-                    stmt = select(LootPoolData).where(LootPoolData.starting_date == rotation_date)
-                    result = (await session.execute(stmt)).unique().scalar_one_or_none()
-                    if result:
-                        result.raid_aspect_pool = loot_pool_data
-                case LootPoolType.RAID_TOME:
-                    stmt = select(LootPoolData).where(LootPoolData.starting_date == rotation_date)
-                    result = (await session.execute(stmt)).unique().scalar_one_or_none()
-                    if result:
-                        result.raid_tome_pool = loot_pool_data
-            await session.commit()
+    rotation_id: Mapped[int] = mapped_column(ForeignKey("pools.id", ondelete="CASCADE"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    client_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
+    item_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
 
-async def purge_loot_pools(
-    async_session: async_sessionmaker[AsyncSession],
-    rotation_date: int,
-) -> None:
-    async with async_session() as session:
-        async with session.begin():
-            stmt = select(LootPoolData).where(LootPoolData.starting_date == rotation_date)
-            result = (await session.execute(stmt)).unique().scalars().all()
-            for loot_pool in result:
-                await session.delete(loot_pool)
-            await session.commit()
+    weight: Mapped[float] = mapped_column(Float, nullable=False)
+    is_fuzzy: Mapped[bool] = mapped_column(Boolean, default=False)
 
-
-__all__ = [
-    "LootPoolData",
-    "add_loot_pools",
-    "get_loot_pools",
-    "update_loot_pools",
-    "purge_loot_pools",
-]
+    rotation: Mapped["Pool"] = relationship("Pool", back_populates="submissions")
+    user: Mapped["User"] = relationship("User")
