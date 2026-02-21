@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.staticfiles import StaticFiles
@@ -9,6 +8,7 @@ from scalar_fastapi import AgentScalarConfig, get_scalar_api_reference
 from app.config import DB_CONFIG
 from app.core.db import RedisClient, close_db, init_db
 from app.core.openapi import custom_openapi
+from app.core.scheduler import SCHEDULER
 from app.module.api.exception_handler import (
     generic_exception_handler,
     http_exception_handler,
@@ -25,14 +25,13 @@ async def lifespan(app: FastAPI):
     Lifespan context manager for application.
     """
     try:
-        scheduler = AsyncIOScheduler()
-        scheduler.start()
+        SCHEDULER.start()
         await init_db()
         if DB_CONFIG.redis_dsn is not None:
             await RedisClient.init()
         yield
     finally:
-        scheduler.shutdown(wait=False)
+        SCHEDULER.shutdown(wait=False)
         await close_db()
         if DB_CONFIG.redis_dsn is not None:
             await RedisClient.close()

@@ -1,47 +1,25 @@
 import datetime
-from typing import Self
 
-from pydantic import BaseModel
-
-from app.core.security.model import Token, User
+from pydantic import BaseModel, ConfigDict
 
 
 class TokenInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     token: str
     permissions: list[str]
     expires_at: datetime.datetime | None
 
-    @classmethod
-    def from_orm(cls, obj: Token) -> Self:
-        return cls(
-            token=obj.token,
-            permissions=obj.permissions,
-            expires_at=obj.expires_at,
-        )
-
 
 class TokenInfoResponse(TokenInfo):
-    created_at: datetime.datetime
+    model_config = ConfigDict(from_attributes=True)
 
-    @classmethod
-    def from_orm(cls, obj: Token) -> Self:
-        return cls(
-            token=obj.token,
-            permissions=obj.permissions,
-            expires_at=obj.expires_at,
-            created_at=obj.created_at,
-        )
+    created_at: datetime.datetime
 
 
 class UserInfoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     token: TokenInfoResponse
     score: int
     common_ips: list[str]
-
-    @classmethod
-    def from_orm(cls, obj: User) -> Self:
-        return cls(
-            token=TokenInfoResponse.from_orm(obj.token),
-            score=obj.score,
-            common_ips=obj.common_ips,
-        )

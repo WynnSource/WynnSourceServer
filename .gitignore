@@ -205,4 +205,4 @@ generated/*
 !generated/wynnsource
 !generated/pyproject.toml
 generated/wynnsource/*
-generated/wynnsource/__init__.py
+!generated/wynnsource/__init__.py

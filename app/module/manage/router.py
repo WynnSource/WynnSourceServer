@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 
 import app.core.metadata as metadata
 from app.core.db import get_session
@@ -28,7 +28,7 @@ async def get_tokens(inactive: bool = False, session=Depends(get_session)) -> WC
     List all API tokens with their permissions.
     """
     tokens = await list_tokens(session, include_inactive=inactive)
-    return WCSResponse(data=[TokenInfoResponse.from_orm(token) for token in tokens])
+    return WCSResponse(data=[TokenInfoResponse.model_validate(token) for token in tokens])
 
 
 @ManageRouter.post("/tokens", summary="Create API Token")
@@ -45,7 +45,7 @@ async def create_token(tokens: list[TokenInfo], session=Depends(get_session)) ->
             permissions=token_info.permissions,
             expires_at=token_info.expires_at,
         )
-        created_tokens.append(TokenInfoResponse.from_orm(user.token))
+        created_tokens.append(TokenInfoResponse.model_validate(user.token))
 
     LOGGER.info(f"Created {len(created_tokens)} new API tokens: {[t.token for t in created_tokens]}")
     return WCSResponse(data=created_tokens)
@@ -77,7 +77,7 @@ async def add_permissions_to_token(
     for token in tokens:
         token.permissions = list(set(token.permissions + permissions))
 
-    updated_token_infos = [TokenInfoResponse.from_orm(token) for token in tokens]
+    updated_token_infos = [TokenInfoResponse.model_validate(token) for token in tokens]
     LOGGER.info(f"Added permissions {permissions} to tokens: {token_strs}")
     return WCSResponse(data=updated_token_infos)
 
@@ -96,7 +96,7 @@ async def remove_permissions_from_token(
     for token in tokens:
         token.permissions = list(set(token.permissions) - set(permissions))
 
-    updated_token_infos = [TokenInfoResponse.from_orm(token) for token in tokens]
+    updated_token_infos = [TokenInfoResponse.model_validate(token) for token in tokens]
     LOGGER.info(f"Removed permissions {permissions} from tokens: {token_strs}")
     return WCSResponse(data=updated_token_infos)
 
@@ -106,7 +106,7 @@ async def get_self_token_info(user: User = Depends(get_user)) -> WCSResponse[Tok
     """
     Get information about the API token used in the current request.
     """
-    return WCSResponse(data=TokenInfoResponse.from_orm(user.token))
+    return WCSResponse(data=TokenInfoResponse.model_validate(user.token))
 
 
 @ManageRouter.get("/user/self", summary="Get Self User Info")
@@ -114,22 +114,24 @@ async def get_self_user_info(user: User = Depends(get_user)) -> WCSResponse[User
     """
     Get information about the current user, including permissions and common IPs.
     """
-    return WCSResponse(data=UserInfoResponse.from_orm(user))
+    return WCSResponse(data=UserInfoResponse.model_validate(user))
 
 
 @ManageRouter.get("/user", summary="Get User Info by Token")
 @metadata.permission(permission="admin.tokens.read")
-async def get_user_info_by_token(token: list[str], session=Depends(get_session)) -> WCSResponse[list[UserInfoResponse]]:
+async def get_user_info_by_token(
+    token: list[str] = Query(), session=Depends(get_session)
+) -> WCSResponse[list[UserInfoResponse]]:
     """
     Get information about a user by their API token.
     """
     tokens = hash_tokens(token)
 
     users = await get_user_by_tokens(session, tokens)
-    return WCSResponse(data=[UserInfoResponse.from_orm(user) for user in users])
+    return WCSResponse(data=[UserInfoResponse.model_validate(user) for user in users])
 
 
-@ManageRouter.post("/register", summary="Register New User")
+@ManageRouter.post("/user/register", summary="Register New User")
 @metadata.rate_limit(1, 3600)
 async def register_user(
     token: str,
@@ -144,4 +146,4 @@ async def register_user(
         session, token_str=hashed_token, permissions=[], expires_at=None, creation_ip=x_real_ip or "unknown"
     )
     LOGGER.info(f"Registered new user with token: {token}")
-    return WCSResponse(data=UserInfoResponse.from_orm(user))
+    return WCSResponse(data=UserInfoResponse.model_validate(user))

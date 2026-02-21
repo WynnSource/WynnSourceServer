@@ -1,4 +1,7 @@
 import enum
+from datetime import datetime
+
+from pydantic import BaseModel, Field
 
 
 class LootPoolType(enum.StrEnum):
@@ -36,3 +39,11 @@ VALID_REGIONS: dict[LootPoolType, type[enum.StrEnum]] = {
     LootPoolType.RAID_ASPECT: RaidRegion,
     LootPoolType.RAID_TOME: RaidRegion,
 }
+
+
+class PoolSubmissionSchema(BaseModel):
+    pool_type: LootPoolType
+    region: str = Field(description="Region or raid for the loot pool, e.g. 'Sky', 'TNA', etc.")
+    page: int
+    client_timestamp: datetime
+    items: list[str] = Field(description="base64-encoded protobuf bytes for item")

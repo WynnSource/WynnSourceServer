@@ -14,11 +14,13 @@ class Pool(Base):
 
     pool_type: Mapped[str] = mapped_column(String(50), nullable=False)
     region: Mapped[str] = mapped_column(String(50), nullable=False)
+    page: Mapped[int] = mapped_column(Integer, nullable=False)
 
     rotation_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     rotation_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     consensus_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     submission_count: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -30,7 +32,7 @@ class Pool(Base):
         cascade="save-update, merge",
     )
 
-    __table_args__ = (UniqueConstraint("pool_type", "region", "rotation_start", name="uq_pool_rotation_key"),)
+    __table_args__ = (UniqueConstraint("pool_type", "region", "page", "rotation_start", name="uq_pool_rotation_key"),)
 
 
 class PoolSubmission(Base):
@@ -38,7 +40,9 @@ class PoolSubmission(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    rotation_id: Mapped[int] = mapped_column(ForeignKey("pools.id", ondelete="CASCADE"), index=True, nullable=False)
+    rotation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("pools.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

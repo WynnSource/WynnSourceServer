@@ -1,3 +1,5 @@
+import base64
+
 from wynnsource import WynnSourceItem
 from wynnsource.common.components_pb2 import (
     CraftedIdentification,
@@ -49,3 +51,24 @@ def test_proto_codegen():
     decoded.ParseFromString(encoded)
     assert item == decoded
     return encoded
+
+
+def test_proto_decode():
+    encoded_b64: str = (
+        "ChdDcmFmdGVkIFNwZWFyIG9mIEZsYW1lcyAJUn0IAWJiClcKCVBsYXllcjEyMxJKQSBzcGVhciBm"
+        + "b3JnZWQgaW4gdGhlIGhlYXJ0IG9mIGEgdm9sY2FubywgaW1idWVkIHdpdGggdGhlIGVzc2VuY2Ugb2YgZmlyZS4aBwgBEBQ"
+        + "YiCeiARQIAxIGCAEQMhhkEggIBRDIARisAg=="
+    )
+
+    decoded = WynnSourceItem()
+    decoded.ParseFromString(base64.b64decode(encoded_b64))
+    assert decoded.name == "Crafted Spear of Flames"
+    assert decoded.rarity == Rarity.RARITY_CRAFTED
+    assert decoded.WhichOneof("data") == "gear"
+    assert decoded.gear.type == GearType.GEAR_TYPE_SPEAR
+    assert decoded.gear.WhichOneof("state") == "crafted"
+    assert decoded.gear.crafted.crafted_meta.author == "Player123"
+    assert (
+        decoded.gear.crafted.crafted_meta.lore
+        == "A spear forged in the heart of a volcano, imbued with the essence of fire."
+    )
