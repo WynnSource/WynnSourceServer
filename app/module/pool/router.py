@@ -1,21 +1,57 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+import datetime
+
+from fastapi import APIRouter, HTTPException
+from starlette.status import HTTP_422_UNPROCESSABLE_CONTENT
 
 from app.core import metadata
-from app.core.db import get_session
-from app.core.rate_limiter import user_based_key_func
+from app.core.db import SessionDep, get_session
+from app.core.rate_limiter import ip_based_key_func, user_based_key_func
 from app.core.router import DocedAPIRoute
+from app.core.security.auth import UserDep
+from app.schemas.enums import ApiTag
+from app.schemas.response import EMPTY_RESPONSE, EmptyResponse, WCSResponse
 
-from .schema import PoolSubmissionSchema
-from .service import submit_pool_data
+from .config import POOL_REFRESH_CONFIG
+from .schema import LootPoolRegion, PoolConsensusResponse, PoolSubmissionSchema, PoolType, RaidRegion
+from .service import get_pool_consensus, submit_pool_data
 
-PoolRouter = APIRouter(route_class=DocedAPIRoute, prefix="/pool", tags=["pool"])
+PoolRouter = APIRouter(route_class=DocedAPIRoute, prefix="/pool", tags=[ApiTag.POOL])
 
 
 @PoolRouter.post("/submit", summary="Submit Pool Data")
 @metadata.rate_limit(limit=30, period=60, key_func=user_based_key_func)
-async def handle_pool_data_submission(data: PoolSubmissionSchema, session: AsyncSession = Depends(get_session)):
+async def handle_pool_data_submission(data: list[PoolSubmissionSchema], user: UserDep) -> EmptyResponse:
     """
     Endpoint for clients to submit pool data.
     """
-    return await submit_pool_data(session, data)
+    for submission in data:
+        try:
+            # We want to process each submission in a different sessions to avoid one bad submission breaking others
+            async with get_session() as session:
+                await submit_pool_data(session, submission, user)
+        except ValueError:
+            continue
+
+    return EMPTY_RESPONSE
+
+
+@PoolRouter.get("/pools/{pool_type}/{region}", summary="Get Current Pool by Type and Region")
+@metadata.rate_limit(limit=10, period=60, key_func=ip_based_key_func)
+@metadata.cached(expire=120)
+async def get_pools_by_type_and_region(
+    pool_type: PoolType, region: LootPoolRegion | RaidRegion, session: SessionDep
+) -> WCSResponse[PoolConsensusResponse]:
+    """
+    Get pools by type and region.
+    """
+    try:
+        data = await get_pool_consensus(
+            session,
+            pool_type,
+            region,
+            rotation_start=POOL_REFRESH_CONFIG[pool_type].get_rotation(datetime.datetime.now(tz=datetime.UTC)).start,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
+
+    return WCSResponse(data=data)

@@ -4,7 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
-class LootPoolType(enum.StrEnum):
+class PoolType(enum.StrEnum):
     ITEM = "lr_item_pool"
     RAID_ASPECT = "raid_aspect_pool"
     RAID_TOME = "raid_tome_pool"
@@ -34,16 +34,34 @@ class RaidRegion(enum.StrEnum):
     NOTG = "NOTG"
 
 
-VALID_REGIONS: dict[LootPoolType, type[enum.StrEnum]] = {
-    LootPoolType.ITEM: LootPoolRegion,
-    LootPoolType.RAID_ASPECT: RaidRegion,
-    LootPoolType.RAID_TOME: RaidRegion,
+VALID_REGIONS: dict[PoolType, type[enum.StrEnum]] = {
+    PoolType.ITEM: LootPoolRegion,
+    PoolType.RAID_ASPECT: RaidRegion,
+    PoolType.RAID_TOME: RaidRegion,
 }
 
 
 class PoolSubmissionSchema(BaseModel):
-    pool_type: LootPoolType
-    region: str = Field(description="Region or raid for the loot pool, e.g. 'Sky', 'TNA', etc.")
+    pool_type: PoolType
+    region: LootPoolRegion | RaidRegion
     page: int
     client_timestamp: datetime
-    items: list[str] = Field(description="base64-encoded protobuf bytes for item")
+    mod_version: str
+    items: list[str] = Field(
+        description="base64-encoded protobuf bytes for item",
+        json_schema_extra={"example": ["aXRlbV9kYXRhXzE=", "aXRlbV9kYXRhXzI="]},
+    )
+
+
+class PoolConsensusResponse(BaseModel):
+    pool_type: PoolType
+    region: LootPoolRegion | RaidRegion
+    page_consensus: list["PageConsensus"]
+
+    class PageConsensus(BaseModel):
+        page: int = Field(description="The page number")
+        items: list[str] = Field(
+            description="Consensus item data (protobuf bytes in base64 encoding)",
+            json_schema_extra={"example": ["aXRlbV9kYXRhXzE=", "aXRlbV9kYXRhXzI="]},
+        )
+        confidence: float = Field(description="Confidence level, between 0 and 1")

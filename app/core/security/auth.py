@@ -6,14 +6,13 @@ from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
-from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_401_UNAUTHORIZED
 
 from app.config import ADMIN_CONFIG
-from app.core.db import get_session
+from app.core.db import SessionDep
 from app.core.log import LOGGER
 
-from .model import Token, User, get_user_by_token, update_user_ip
+from .model import User, UserRepository
 
 
 @lru_cache(maxsize=256)
@@ -45,19 +44,8 @@ def has_permission(required: str | set[str] | None, user: set[str]) -> bool:
     return True
 
 
-def check_permissions(token: Token, required_permissions: set[str] | None) -> None:
-    """
-    Check if the token's permissions satisfy the required permissions.
-    Raises HTTPException if permissions are insufficient.
-    """
-    user_permissions = set(token.permissions)
-    if not has_permission(required_permissions, user_permissions):
-        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Insufficient permissions")
-
-
-async def verify_token(user: User):
-    token = user.token
-    if token.expires_at and token.expires_at < datetime.now(UTC):
+async def verify_user(user: User):
+    if user.expires_at and user.expires_at < datetime.now(UTC):
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="API key has expired")
 
 
@@ -66,47 +54,60 @@ api_key_scheme = APIKeyHeader(name="X-API-KEY", auto_error=False)
 
 async def get_user(
     request: Request,
+    session: SessionDep,
+    api_key: Annotated[str | None, Security(api_key_scheme)] = None,
     x_real_ip: Annotated[str | None, Header(alias="X-Real-IP", include_in_schema=False)] = None,
-    api_key: str = Security(api_key_scheme),
-    session: AsyncSession = Depends(get_session),
 ) -> User:
     if api_key == ADMIN_CONFIG.token and ADMIN_CONFIG.token is not None:
         # Create a dummy token with all permissions for the admin token
         LOGGER.info("Admin token used, granting all permissions")
         return User(
-            token=Token(
-                token="<admin>",
-                permissions=["*"],
-                created_at=datetime.now(UTC),
-                expires_at=datetime.now(UTC),
-            ),
-            score=0,
+            id=-1,
+            token="<admin>",
+            permissions=["*"],
+            created_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC),
+            is_active=True,
+            creation_ip="unknown",
             common_ips=[],
+            score=0,
         )
     else:
+        if api_key is None:
+            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="missing API key")
+
+        userRepo = UserRepository(session)
         api_key = hash_token(api_key)
-        user = await get_user_by_token(session, api_key)
+        user = await userRepo.get_user_by_token(api_key)
+
+        if not user:
+            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="User not found for token")
 
         assert request.client is not None
 
         if request.client.host == "127.0.0.1":
-            LOGGER.warning(f"Token {user.token.token} used from localhost without X-Real-IP header")
+            LOGGER.warning(f"Token {user.token} used from localhost without X-Real-IP header")
         elif x_real_ip is None:
-            LOGGER.warning(f"Token {user.token.token} used without X-Real-IP header")
+            LOGGER.warning(f"Token {user.token} used without X-Real-IP header")
             raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Cannot determine client IP address")
-        await update_user_ip(session, user, x_real_ip or request.client.host)
-        if not user:
-            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="User not found for token")
+
+        await userRepo.update_user_ip(user, x_real_ip or request.client.host)
+
+        await verify_user(user)
 
         request.state.user_id = user.id  # Store user ID in request state for later use (e.g. rate limiting)
         return user
 
 
+UserDep = Annotated[User, Depends(get_user)]
+IpDep = Annotated[str, Header(alias="X-Real-IP", include_in_schema=False)]
+
+
 def depends_permission(permission: str | set[str]):
-    async def dependency(request: Request, user: User = Depends(get_user), session=Depends(get_session)) -> User:
-        if not has_permission(permission, set(user.token.permissions)):
-            LOGGER.warning(f"User {user.token.token} does not have required permissions: {permission}")
-            LOGGER.debug(f"User {user.token.token} permissions: {user.token.permissions}")
+    async def dependency(user: UserDep) -> User:
+        if not has_permission(permission, set(user.permissions)):
+            LOGGER.debug(f"User {user.token} does not have required permissions: {permission}")
+            LOGGER.debug(f"User {user.token} permissions: {user.permissions}")
             raise HTTPException(status_code=403, detail="Insufficient permissions")
 
         return user
@@ -133,18 +134,13 @@ def depends_permission(permission: str | set[str]):
 #     return user
 
 
-async def get_token(token_str: str, session=Depends(get_session)) -> Token:
-    LOGGER.debug(f"Verifying token: {token_str}")
-    user = await get_user_by_token(session, token_str)
-    await verify_token(user)
-    return user.token
-
-
+@lru_cache(maxsize=1024)
 def hash_token(token_str: str) -> str:
-    if token_str is None:
-        return None
     return sha256(token_str.encode()).hexdigest()
 
 
 def hash_tokens(token_strs: list[str]) -> list[str]:
-    return [sha256(t.encode()).hexdigest() for t in token_strs]
+    return [hash_token(t) for t in token_strs]
+
+
+__all__ = ["UserDep", "depends_permission", "get_user", "hash_token", "hash_tokens"]

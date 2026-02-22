@@ -1,4 +1,4 @@
-from .response import StatusResponse, WCSResponse
+from .response import EmptyResponse, StatusResponse
 
 STATUS_RESPONSE = StatusResponse()
-EMPTY_RESPONSE = WCSResponse(data={})
+EMPTY_RESPONSE = EmptyResponse()

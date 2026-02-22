@@ -1,5 +1,8 @@
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import Annotated
 
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import DB_CONFIG
@@ -49,14 +52,28 @@ async def close_db():
         LOGGER.debug("Database engine connection closed.")
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
+@asynccontextmanager
+async def get_session():
+    async with session_maker() as session:
+        try:
+            LOGGER.debug("Database session started.")
+            yield session
+            await session.commit()
+            LOGGER.debug("Database session committed.")
+        except Exception:
+            LOGGER.exception("Error occurred during database session, rolling back.")
+            await session.rollback()
+            raise
+
+
+async def get_session_fastapi() -> AsyncGenerator[AsyncSession, None]:
     """
     Returns the SQLAlchemy session maker.
     """
-    async with session_maker() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+    async with get_session() as session:
+        yield session
+
+
+SessionDep = Annotated[AsyncSession, Depends(get_session_fastapi)]
+
+__all__ = ["SessionDep", "close_db", "get_engine", "get_session", "init_db"]

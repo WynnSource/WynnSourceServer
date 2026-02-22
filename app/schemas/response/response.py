@@ -9,14 +9,18 @@ from app.schemas.constants import __REVISION__, __VERSION__
 from app.schemas.enums import ErrorCodes
 
 
-class WCSResponse[T: (BaseModel, dict, list)](BaseModel):
+class WCSResponse[T: (BaseModel, dict, list, None)](BaseModel):
     """
     Base class for all v1 response models.
     """
 
     data: T
     code: ErrorCodes = Field(default=ErrorCodes.OK)
-    timestamp: int = Field(default_factory=lambda: int(datetime.now(UTC).timestamp()), frozen=True)
+    timestamp: int = Field(
+        default_factory=lambda: int(datetime.now(UTC).timestamp()),
+        frozen=True,
+        json_schema_extra={"example": int(datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC).timestamp())},
+    )
     version: int = Field(default=__REVISION__, frozen=True)
 
     def to_response(self, response_code: int = HTTP_200_OK, headers: Mapping[str, str] | None = None) -> JSONResponse:
@@ -64,3 +68,11 @@ class StatusResponse(WCSResponse[StatusData]):
     """
 
     data: StatusData = Field(default=StatusData(), frozen=True)
+
+
+class EmptyResponse(WCSResponse[dict]):
+    """
+    Empty response model for v1.
+    """
+
+    data: dict = Field(default={}, frozen=True, json_schema_extra={"example": {}})

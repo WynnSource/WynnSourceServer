@@ -1,25 +1,28 @@
-import datetime
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
 
-class TokenInfo(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class UserInfoRequest(BaseModel):
     token: str
     permissions: list[str]
-    expires_at: datetime.datetime | None
-
-
-class TokenInfoResponse(TokenInfo):
-    model_config = ConfigDict(from_attributes=True)
-
-    created_at: datetime.datetime
+    expires_at: datetime | None = None
 
 
 class UserInfoResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    token: TokenInfoResponse
-    score: int
+    id: int
+
+    token: str
+    permissions: list[str]
+
+    created_at: datetime
+    expires_at: datetime | None = None
+    is_active: bool = True
+
+    creation_ip: str
+    # A list of common IPs used by this user, ordered from oldest to newest.
     common_ips: list[str]
+
+    score: int

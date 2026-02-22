@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
 from app.schemas.constants import __DESCRIPTION__, __NAME__, __VERSION__
+from app.schemas.enums import ApiTag
 
 
 def custom_openapi(app: FastAPI):
@@ -19,7 +20,7 @@ def custom_openapi(app: FastAPI):
             routes=app.routes,
         )
 
-        openapi_schema["x-tagGroups"] = [{"name": "v2", "tags": ["management", "pool"]}]
+        openapi_schema["x-tagGroups"] = [{"name": "v2", "tags": [t.value for t in ApiTag]}]
 
         app.openapi_schema = openapi_schema
         return app.openapi_schema

@@ -1,5 +1,6 @@
 import inspect
 from collections.abc import Callable, Sequence
+from enum import Enum
 from functools import wraps
 from typing import Any
 
@@ -24,13 +25,22 @@ class DocedAPIRoute(APIRoute):
         dependencies: Sequence[params.Depends] | None = None,
         responses: dict[int | str, dict[str, Any]] | None = None,
         description: str | None = None,
+        tags: list[str | Enum] | None = None,
         **kwargs,
     ):
+
+        # meta related processing
         meta: EndpointMetadata = getattr(endpoint, "__metadata__", EndpointMetadata())
 
         if meta.processed:
             super().__init__(
-                path, endpoint, dependencies=dependencies, responses=responses, description=description, **kwargs
+                path,
+                endpoint,
+                dependencies=dependencies,
+                responses=responses,
+                description=description,
+                tags=tags,
+                **kwargs,
             )
             return
 
@@ -100,7 +110,13 @@ class DocedAPIRoute(APIRoute):
             )
 
         super().__init__(
-            path, endpoint, dependencies=dependencies, responses=responses, description=description, **kwargs
+            path,
+            endpoint,
+            dependencies=dependencies,
+            responses=responses,
+            description=description,
+            tags=tags,
+            **kwargs,
         )
 
     def add_description(self, text: str, description: str | None, endpoint: Callable[..., Any]) -> str:
