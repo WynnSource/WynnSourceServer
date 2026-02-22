@@ -13,7 +13,7 @@ from wynnsource import WynnSourceItem
 
 from .config import CONSENSUS_THRESHOLD, FUZZY_WINDOW, POOL_REFRESH_CONFIG, WEIGHT_MAP
 from .model import PoolRepository, PoolSubmission, PoolSubmissionRepository
-from .schema import VALID_REGIONS, LootPoolRegion, PoolConsensusResponse, PoolSubmissionSchema, PoolType, RaidRegion
+from .schema import VALID_REGIONS, LootPoolRegion, PoolSubmissionSchema, PoolType, RaidRegion
 
 
 async def submit_pool_data(session: AsyncSession, data: PoolSubmissionSchema, user: User):
@@ -164,9 +164,12 @@ async def compute_pool_consensus_for_pool(pool_type: PoolType):
             pool.needs_recalc = False
 
 
+type ConsensusByPage = dict[int, tuple[list[bytes], float]]
+
+
 async def get_pool_consensus(
     session: AsyncSession, pool_type: PoolType, region: LootPoolRegion | RaidRegion, rotation_start: datetime.datetime
-) -> PoolConsensusResponse:
+) -> ConsensusByPage:
 
     if region not in VALID_REGIONS[pool_type]:
         raise ValueError(f"Invalid region {region} for pool type {pool_type}")
@@ -175,17 +178,10 @@ async def get_pool_consensus(
 
     pool = await poolRepo.list_pools(pool_type=pool_type, region=region, rotation_start=rotation_start, order_by="page")
     if not pool:
-        return PoolConsensusResponse(pool_type=pool_type, region=region, page_consensus=[])
+        return {}
 
-    consensus_by_page: dict[int, tuple[list[str], float]] = {}
+    consensus_by_page: ConsensusByPage = {}
     for p in pool:
-        consensus_by_page[p.page] = [base64.b64encode(item).decode() for item in p.consensus_data], p.confidence
+        consensus_by_page[p.page] = p.consensus_data, p.confidence
 
-    return PoolConsensusResponse(
-        pool_type=pool_type,
-        region=region,
-        page_consensus=[
-            PoolConsensusResponse.PageConsensus(page=page, items=items, confidence=confidence)
-            for page, (items, confidence) in consensus_by_page.items()
-        ],
-    )
+    return consensus_by_page

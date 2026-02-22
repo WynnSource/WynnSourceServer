@@ -60,8 +60,8 @@ class PoolConsensusResponse(BaseModel):
 
     class PageConsensus(BaseModel):
         page: int = Field(description="The page number")
-        items: list[str] = Field(
-            description="Consensus item data (protobuf bytes in base64 encoding)",
+        items: list[str] | list[dict] = Field(
+            description="Consensus item data for the page, format depends on item_return_type query parameter",
             json_schema_extra={"example": ["aXRlbV9kYXRhXzE=", "aXRlbV9kYXRhXzI="]},
         )
         confidence: float = Field(description="Confidence level, between 0 and 1")

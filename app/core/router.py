@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import Depends, Request, Response, params
 from fastapi.routing import APIRoute
+from starlette.routing import get_name
 
 from app.core.cache import cached
 from app.core.metadata import EndpointMetadata
@@ -26,8 +27,13 @@ class DocedAPIRoute(APIRoute):
         responses: dict[int | str, dict[str, Any]] | None = None,
         description: str | None = None,
         tags: list[str | Enum] | None = None,
+        name: str | None = None,
+        operation_id: str | None = None,
         **kwargs,
     ):
+
+        name = get_name(endpoint) if name is None else name
+        operation_id = operation_id or name
 
         # meta related processing
         meta: EndpointMetadata = getattr(endpoint, "__metadata__", EndpointMetadata())
@@ -40,6 +46,8 @@ class DocedAPIRoute(APIRoute):
                 responses=responses,
                 description=description,
                 tags=tags,
+                name=name,
+                operation_id=operation_id,
                 **kwargs,
             )
             return
@@ -116,6 +124,8 @@ class DocedAPIRoute(APIRoute):
             responses=responses,
             description=description,
             tags=tags,
+            name=name,
+            operation_id=operation_id,
             **kwargs,
         )
 

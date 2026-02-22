@@ -38,7 +38,6 @@ class WCSResponse[T: (BaseModel, dict, list, None)](BaseModel):
         return WCSResponse[dict](
             data={"message": message},
             code=ErrorCodes.OK,
-            timestamp=int(datetime.now(UTC).timestamp()),
         )
 
     @classmethod
@@ -49,7 +48,6 @@ class WCSResponse[T: (BaseModel, dict, list, None)](BaseModel):
         return WCSResponse[dict](
             data=data,
             code=ErrorCodes.OK,
-            timestamp=int(datetime.now(UTC).timestamp()),
         )
 
 
