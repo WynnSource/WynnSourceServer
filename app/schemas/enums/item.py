@@ -9,7 +9,7 @@ from wynnsource import WynnSourceItem
 class ItemReturnType(StrEnum):
     B64 = "b64"
     JSON = "json"
-    NAME = "name"
+    NAME_ONLY = "name_only"
 
     def format_items(self, items: list[bytes]) -> list[str] | list[dict]:
         match self:
@@ -24,7 +24,7 @@ class ItemReturnType(StrEnum):
                     except Exception:
                         continue  # silently skip invalid items
                 return formatted_items
-            case ItemReturnType.NAME:
+            case ItemReturnType.NAME_ONLY:
                 formatted_items = []
                 for item in items:
                     try:

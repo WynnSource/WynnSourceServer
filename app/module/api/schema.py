@@ -1,3 +1,6 @@
+from datetime import datetime
+from enum import StrEnum
+
 from pydantic import BaseModel
 from pydantic_core import ErrorDetails
 
@@ -32,6 +35,25 @@ class ValidationErrorResponse(WCSResponse[list]):
 
     data: list[ErrorDetails]
     code: ErrorCodes = ErrorCodes.VALIDATION_ERROR
+
+
+class MappingType(StrEnum):
+    IDENTIFICATION = "identification"
+    SHINY = "shiny"
+
+
+class Mapping(BaseModel):
+    id: int
+    key: str
+
+
+class MappingResponse(BaseModel):
+    """
+    Response model for ID to name mappings.
+    """
+
+    lastUpdated: datetime
+    data: list[Mapping]
 
 
 __all__ = ["GenericExceptionResponse", "HTTPErrorResponse", "ValidationErrorResponse"]

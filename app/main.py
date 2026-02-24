@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.staticfiles import StaticFiles
-from scalar_fastapi import AgentScalarConfig, get_scalar_api_reference
+from scalar_fastapi import AgentScalarConfig, OpenAPISource, get_scalar_api_reference
 
 from app.config import DB_CONFIG
 from app.core.db import RedisClient, close_db, init_db
@@ -69,7 +69,12 @@ async def read_root() -> StatusResponse:
 async def scalar_ui():
     return get_scalar_api_reference(
         title=f"{__NAME__} API Documentation",
-        openapi_url=app.openapi_url,
+        sources=[
+            OpenAPISource(
+                slug="wynnsource-api",
+                url=app.openapi_url,
+            )
+        ],
         agent=AgentScalarConfig(disabled=True),
         scalar_favicon_url="./static/favicon.ico",
         default_open_all_tags=True,

@@ -19,7 +19,7 @@ class WCSResponse[T: (BaseModel, dict, list, None)](BaseModel):
     timestamp: int = Field(
         default_factory=lambda: int(datetime.now(UTC).timestamp()),
         frozen=True,
-        json_schema_extra={"example": int(datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC).timestamp())},
+        examples=[int(datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC).timestamp())],
     )
     version: int = Field(default=__REVISION__, frozen=True)
 

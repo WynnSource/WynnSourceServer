@@ -6,6 +6,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.core.log import LOGGER
 from app.core.scheduler import SCHEDULER
 from app.core.score import Tier
 from app.core.security.model import User
@@ -36,6 +37,10 @@ async def submit_pool_data(session: AsyncSession, data: PoolSubmissionSchema, us
             # we just want to make sure it can is a valid item
             items_decoded.append(decoded)
         except Exception:
+            LOGGER.debug(
+                f"Invalid item {item} in submission from user"
+                + f"{user.id} for pool {data.pool_type}:{data.region}:{data.page}"
+            )
             continue  # we silently skip invalid items
 
     if not items_decoded:
@@ -57,7 +62,7 @@ async def submit_pool_data(session: AsyncSession, data: PoolSubmissionSchema, us
         or abs(pool.rotation_end - data.client_timestamp) < FUZZY_WINDOW
     )
     submission = PoolSubmission(
-        user=user,
+        user_id=user.id,
         client_timestamp=data.client_timestamp,
         item_data=items_decoded,
         weight=calculate_submission_weight(user, fuzzy),
@@ -69,14 +74,12 @@ async def submit_pool_data(session: AsyncSession, data: PoolSubmissionSchema, us
     existingSubmission = await submissionRepo.get_user_submission_for_rotation(user.id, pool.id)
 
     if existingSubmission is not None:
-        # if the new submission is different from the existing one, we replace it
-        # the existing one still stay in the user's submission history
-        if existingSubmission.item_data != submission.item_data:
-            existingSubmission.item_data = submission.item_data
-            existingSubmission.client_timestamp = submission.client_timestamp
-            existingSubmission.weight = submission.weight
-            existingSubmission.mod_version = submission.mod_version
-            pool.needs_recalc = True
+        # we update the existing submission
+        existingSubmission.item_data = submission.item_data
+        existingSubmission.client_timestamp = submission.client_timestamp
+        existingSubmission.weight = submission.weight
+        existingSubmission.mod_version = submission.mod_version
+        pool.needs_recalc = True
     else:
         submission.rotation = pool
         pool.submission_count += 1
@@ -103,7 +106,7 @@ def calculate_submission_weight(user: User, fuzzy: bool = False) -> float:
 @SCHEDULER.scheduled_job(
     IntervalTrigger(minutes=20),
     id="compute_pool_consensus",
-    misfire_grace_time=60,  # Allow a 1-minute grace period for missed executions
+    misfire_grace_time=60,
     coalesce=True,  # Coalesce multiple missed executions into one
 )
 async def compute_pool_consensus():
@@ -126,11 +129,16 @@ async def compute_pool_consensus_for_pool(pool_type: PoolType):
         for pool in active_pools:
             submissions = pool.submissions
 
-            item_weights: dict[bytes, float] = defaultdict(float)
+            item_weights: dict[tuple[bytes, int], float] = defaultdict(float)
 
             for submission in submissions:
+                local_counts = defaultdict(int)
+
                 for item_data in submission.item_data:
-                    item_weights[item_data] += submission.weight
+                    local_counts[item_data] += 1
+                    occurrence = local_counts[item_data]
+
+                    item_weights[(item_data, occurrence)] += submission.weight
 
             if not item_weights:
                 pool.consensus_data = []
@@ -141,7 +149,7 @@ async def compute_pool_consensus_for_pool(pool_type: PoolType):
             highest_weight = max(item_weights.values())
 
             if highest_weight <= 0:
-                pool.consensus_data = list(item_weights.keys())
+                pool.consensus_data = []
                 pool.confidence = 0.0
                 pool.needs_recalc = False
                 continue
@@ -151,7 +159,7 @@ async def compute_pool_consensus_for_pool(pool_type: PoolType):
             consensus_items = []
             consensus_weights = []
 
-            for item, weight in item_weights.items():
+            for (item, _), weight in item_weights.items():
                 if weight >= threshold:
                     consensus_items.append(item)
                     consensus_weights.append(weight)

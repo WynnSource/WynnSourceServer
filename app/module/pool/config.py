@@ -31,7 +31,7 @@ class PoolConfig:
 GLOBAL_RESET_ANCHOR = datetime(2026, 2, 20, 18, 0, 0, tzinfo=UTC)
 
 POOL_REFRESH_CONFIG = {
-    PoolType.ITEM: PoolConfig(
+    PoolType.LR_ITEM: PoolConfig(
         interval=timedelta(days=7),
         anchor=GLOBAL_RESET_ANCHOR,
     ),
@@ -39,7 +39,7 @@ POOL_REFRESH_CONFIG = {
         interval=timedelta(days=7),
         anchor=GLOBAL_RESET_ANCHOR,
     ),
-    PoolType.RAID_TOME: PoolConfig(
+    PoolType.RAID_ITEM: PoolConfig(
         interval=timedelta(days=7),
         anchor=GLOBAL_RESET_ANCHOR,
     ),
