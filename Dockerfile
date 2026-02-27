@@ -1,8 +1,17 @@
+FROM bufbuild/buf:1.66.0 AS buf_installer
+
 # Use a Python image with uv pre-installed
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 # Install the project into `/app`
 WORKDIR /app
+COPY . /app
+
+# Copy the buf binary from the buf_installer stage and make it executable
+COPY --from=buf_installer /usr/local/bin/buf /usr/local/bin/buf
+
+RUN chmod +x /usr/local/bin/buf
+RUN buf generate --template buf.gen.yaml
 
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
@@ -16,14 +25,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project --no-dev
 
-# Then, add the rest of the project source code and install it
-# Installing separately from its dependencies allows optimal layer caching
-COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Run the FastAPI application by default
+# Run the FastAPI application
+EXPOSE 8000
 CMD fastapi run

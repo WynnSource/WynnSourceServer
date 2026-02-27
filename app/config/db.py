@@ -8,7 +8,7 @@ class DbConfig(BaseSettings):
     postgres_dsn: Annotated[
         PostgresDsn,
         Field(
-            description="PostgreSQL connection string (leaving empty will use builtin SQLite database)",
+            description="PostgreSQL connection string",
             alias="WCS_DB_POSTGRES_DSN",
         ),
     ] = PostgresDsn("postgresql+asyncpg://user:password@localhost:5432/wcs_db")

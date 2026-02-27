@@ -1,3 +1,13 @@
+## Deploying
+
+First create the necessary secrets for database and admin token access. Replace the placeholders with your actual values.
+```bash
+kubectl -n wynnsource-dev create secret generic wynnsource-secrets \
+  --from-literal=WCS_DB_POSTGRES_DSN='postgresql+asyncpg://wynnsource:<password>@wynnsource-pg-rw:5432/wcs_db' \
+  --from-literal=WCS_DB_REDIS_DSN='redis://wynnsource-redis:6379/0' \
+  --from-literal=WCS_ADMIN_TOKEN='<your-admin-token>'
+```
+
 ## License
 
 `Copyright (C) <2026>  <FYWinds>`

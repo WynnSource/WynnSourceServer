@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: wynnsource-dev
+resources:
+  - postgres.yaml
+  - redis.yaml
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - migration-job.yaml
+images:
+  - name: ghcr.io/wynnsource/wynnsource-server
+    newTag: latest

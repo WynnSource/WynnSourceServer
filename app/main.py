@@ -60,7 +60,15 @@ app.openapi = custom_openapi(app)
 
 
 @app.get("/")
+@app.get("/healthz", include_in_schema=False)
 async def read_root() -> StatusResponse:
+    return STATUS_RESPONSE
+
+
+@app.get("/readyz", include_in_schema=False)
+async def read_readyz() -> StatusResponse:
+    # TODO check db connections and other dependencies here
+    # for now just return success for dev
     return STATUS_RESPONSE
 
 
