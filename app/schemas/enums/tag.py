@@ -5,4 +5,5 @@ class ApiTag(StrEnum):
     MANAGEMENT = "management"
     POOL = "pool"
     MARKET = "market"
+    BETA = "beta"
     MISC = "misc"

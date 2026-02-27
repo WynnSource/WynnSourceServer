@@ -38,7 +38,7 @@ test = ["pytest>=8.3.5", "pytest-cov>=6.1.1", "pytest-xdist>=3.6.1"]
 line-ending = "lf"
 
 [tool.ruff]
-line-length = 120
+line-length = 100
 target-version = "py312"
 src = ["app"]
 exclude = ["generated"]
@@ -85,6 +85,5 @@ wynnsource-proto = { workspace = true, editable = true }
 
 [tool.basedpyright]
 typeCheckingMode = "basic"
-diagnosticMode = "workspace"
 include = ["app", "tests/*"]
 exclude = ["generated"]

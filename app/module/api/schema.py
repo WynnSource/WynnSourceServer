@@ -56,4 +56,9 @@ class MappingResponse(BaseModel):
     data: list[Mapping]
 
 
-__all__ = ["GenericExceptionResponse", "HTTPErrorResponse", "ValidationErrorResponse"]
+class RandomItemResponse(BaseModel):
+    """
+    Response model for random item endpoint.
+    """
+
+    item: str | dict

@@ -38,7 +38,8 @@ def has_permission(required: str | set[str] | None, user: set[str]) -> bool:
     for req in required:
         # Check for exact match or wildcard match in user permissions
         if not any(
-            _compile_pattern(user_perm).fullmatch(req) if "*" in user_perm else user_perm == req for user_perm in user
+            _compile_pattern(user_perm).fullmatch(req) if "*" in user_perm else user_perm == req
+            for user_perm in user
         ):
             return False
     return True
@@ -81,7 +82,9 @@ async def get_user(
         user = await userRepo.get_user_by_token(api_key)
 
         if not user:
-            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="User not found for token")
+            raise HTTPException(
+                status_code=HTTP_401_UNAUTHORIZED, detail="User not found for token"
+            )
 
         assert request.client is not None
 
@@ -89,13 +92,17 @@ async def get_user(
             LOGGER.warning(f"Token {user.token} used from localhost without X-Real-IP header")
         elif x_real_ip is None:
             LOGGER.warning(f"Token {user.token} used without X-Real-IP header")
-            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Cannot determine client IP address")
+            raise HTTPException(
+                status_code=HTTP_401_UNAUTHORIZED, detail="Cannot determine client IP address"
+            )
 
         await userRepo.update_user_ip(user, x_real_ip or request.client.host)
 
         await verify_user(user)
 
-        request.state.user_id = user.id  # Store user ID in request state for later use (e.g. rate limiting)
+        request.state.user_id = (
+            user.id
+        )  # Store user ID in request state for later use (e.g. rate limiting)
         return user
 
 
@@ -113,25 +120,6 @@ def depends_permission(permission: str | set[str]):
         return user
 
     return dependency
-
-
-# Used before custom APIRoute is implemented, kept for reference and potential future use
-# async def require_permission(request: Request, user: User = Depends(get_user), session=Depends(get_session)) -> User:
-
-#     # Fetch the required permissions from the endpoint metadata
-#     endpoint = request.scope.get("endpoint")
-#     metadata = getattr(endpoint, "__metadata__", None)
-#     if not isinstance(metadata, EndpointMetadata):
-#         LOGGER.error(f"Endpoint {endpoint} does not have metadata or is not an EndpointMetadata instance")
-#         raise HTTPException(status_code=500, detail="Internal Server Error: Missing endpoint metadata")
-#     required_perms = metadata.permission
-
-#     if not has_permission(required_perms, set(user.token.permissions)):
-#         LOGGER.warning(f"User {user.token.token} does not have required permissions: {required_perms}")
-#         LOGGER.debug(f"User {user.token.token} permissions: {user.token.permissions}")
-#         raise HTTPException(status_code=403, detail="Insufficient permissions")
-
-#     return user
 
 
 @lru_cache(maxsize=1024)

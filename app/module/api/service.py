@@ -1,3 +1,5 @@
+import random
+
 import httpx
 import jsonschema
 import orjson
@@ -5,6 +7,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.log import LOGGER
 from app.core.scheduler import SCHEDULER
+from wynnsource import WynnSourceItem
+from wynnsource.common.enums_pb2 import RARITY_CRAFTED
 
 from .schema import MappingType
 
@@ -41,12 +45,16 @@ class MappingStorage:
         async with httpx.AsyncClient() as client:
             response = await client.get(url)
             if response.status_code != 200:
-                LOGGER.error(f"Failed to fetch mapping for {mapping_type.value} from {url}: {response.status_code}")
+                LOGGER.error(
+                    f"Failed to fetch mapping for {mapping_type.value} "
+                    + "from {url}: {response.status_code}"
+                )
                 return
             schema_response = await client.get(schema_url)
             if schema_response.status_code != 200:
                 LOGGER.error(
-                    f"Failed to fetch schema for {mapping_type.value} from {schema_url}: {schema_response.status_code}"
+                    f"Failed to fetch schema for {mapping_type.value} "
+                    + "from {schema_url}: {schema_response.status_code}"
                 )
                 return
 
@@ -56,15 +64,22 @@ class MappingStorage:
             try:
                 jsonschema.validate(instance=mapping, schema=schema)
             except jsonschema.ValidationError as e:
-                LOGGER.error(f"Mapping data for {mapping_type.value} failed schema validation: {e.message}")
+                LOGGER.error(
+                    f"Mapping data for {mapping_type.value} failed schema validation: {e.message}"
+                )
                 return
 
-            del mapping[SCHEMA_FIELD]  # we don't need the schema reference as it's relative path in the repo
+            del mapping[
+                SCHEMA_FIELD
+            ]  # we don't need the schema reference as it's relative path in the repo
             self.mappings[mapping_type] = mapping
 
 
 @SCHEDULER.scheduled_job(
-    IntervalTrigger(minutes=60), id="mapping_update_trigger", name="Mapping Update", misfire_grace_time=300
+    IntervalTrigger(minutes=60),
+    id="mapping_update_trigger",
+    name="Mapping Update",
+    misfire_grace_time=300,
 )
 async def update_mapping():
     """
@@ -73,3 +88,13 @@ async def update_mapping():
     storage = MappingStorage().get_instance()
     for mapping_type in MappingType:
         await storage.update_mapping(mapping_type)
+
+
+def generate_random_item() -> bytes:
+    """
+    Generate a random item for testing purposes.
+    """
+    id = random.randint(1, 10000)
+    return WynnSourceItem(
+        name=f"Test Item {id}", level=id % 100, rarity=RARITY_CRAFTED
+    ).SerializeToString()

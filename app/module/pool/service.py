@@ -74,22 +74,18 @@ async def submit_pool_data(session: AsyncSession, data: PoolSubmissionSchema, us
     existingSubmission = await submissionRepo.get_user_submission_for_rotation(user.id, pool.id)
 
     if existingSubmission is not None:
-        # we update the existing submission
-        existingSubmission.item_data = submission.item_data
-        existingSubmission.client_timestamp = submission.client_timestamp
-        existingSubmission.weight = submission.weight
-        existingSubmission.mod_version = submission.mod_version
-        pool.needs_recalc = True
-    else:
-        submission.rotation = pool
-        pool.submission_count += 1
-        pool.needs_recalc = True
-        await submissionRepo.save(submission)
+        # we delete it infavor of the new submission
+        await submissionRepo.delete(existingSubmission)
+
+    submission.rotation = pool
+    pool.needs_recalc = True
+    await submissionRepo.save(submission)
 
 
 def calculate_submission_weight(user: User, fuzzy: bool = False) -> float:
     if user.score < 0:
-        # For users with negative scores, we directly map (-10000, 0) to (0.01, 0.1) on a logarithmic scale
+        # For users with negative scores,
+        #  we directly map (-10000, 0) to (0.01, 0.1) on a logarithmic scale
         return max(0.0001, min(0.1, 0.1 * (10 ** (user.score / 10000))))
     else:
         tier = Tier.get_by_score(user.score)
@@ -120,7 +116,9 @@ async def compute_pool_consensus_for_pool(pool_type: PoolType):
         poolRepo = PoolRepository(session)
         active_pools = await poolRepo.list_pools(
             pool_type=pool_type,
-            rotation_start=POOL_REFRESH_CONFIG[pool_type].get_rotation(datetime.datetime.now(tz=datetime.UTC)).start,
+            rotation_start=POOL_REFRESH_CONFIG[pool_type]
+            .get_rotation(datetime.datetime.now(tz=datetime.UTC))
+            .start,
             needs_recalc=True,
         )
         # The active pools should only differ in (region, page)
@@ -166,7 +164,9 @@ async def compute_pool_consensus_for_pool(pool_type: PoolType):
 
             pool.consensus_data = consensus_items
             confidence = (
-                sum(consensus_weights) / (highest_weight * len(consensus_weights)) if consensus_weights else 0.0
+                sum(consensus_weights) / (highest_weight * len(consensus_weights))
+                if consensus_weights
+                else 0.0
             )
             pool.confidence = round(confidence, 4)
             pool.needs_recalc = False
@@ -176,7 +176,10 @@ type ConsensusByPage = dict[int, tuple[list[bytes], float]]
 
 
 async def get_pool_consensus(
-    session: AsyncSession, pool_type: PoolType, region: LootPoolRegion | RaidRegion, rotation_start: datetime.datetime
+    session: AsyncSession,
+    pool_type: PoolType,
+    region: LootPoolRegion | RaidRegion,
+    rotation_start: datetime.datetime,
 ) -> ConsensusByPage:
 
     if region not in VALID_REGIONS[pool_type]:
@@ -184,7 +187,9 @@ async def get_pool_consensus(
 
     poolRepo = PoolRepository(session)
 
-    pool = await poolRepo.list_pools(pool_type=pool_type, region=region, rotation_start=rotation_start, order_by="page")
+    pool = await poolRepo.list_pools(
+        pool_type=pool_type, region=region, rotation_start=rotation_start, order_by="page"
+    )
     if not pool:
         return {}
 
