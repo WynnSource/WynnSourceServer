@@ -204,5 +204,6 @@ pyrightconfig.json
 generated/*
 !generated/wynnsource
 !generated/pyproject.toml
+!generated/README.md
 generated/wynnsource/*
 !generated/wynnsource/__init__.py
