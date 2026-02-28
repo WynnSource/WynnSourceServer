@@ -33,6 +33,9 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 RUN addgroup --system wynnsource && adduser --system --ingroup wynnsource wynnsource
 RUN chown -R wynnsource:wynnsource /app
+
+ENV UV_NO_CACHE=1
+
 USER wynnsource
 
 # Run the FastAPI application
