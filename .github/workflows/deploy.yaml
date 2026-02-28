@@ -51,5 +51,6 @@ jobs:
         uses: actions/delete-package-versions@v5
         with:
           package-type: container
+          package-name: wynnsource-server
           min-versions-to-keep: 1
           delete-only-untagged-versions: true
