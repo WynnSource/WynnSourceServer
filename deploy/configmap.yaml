@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wynnsource-config
+data:
+  LEVEL: "DEBUG"
+  MAX_IP_RECORDS: "10"

@@ -1,28 +1,40 @@
-from app.domain.enums import ErrorCodes
-from app.domain.response import Response
-from app.log import LOGGER
 from fastapi import HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
-from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
+from starlette.status import HTTP_422_UNPROCESSABLE_CONTENT, HTTP_500_INTERNAL_SERVER_ERROR
+
+from app.core.log import LOGGER
+from app.schemas.enums import ErrorCodes
+
+from .schema import GenericExceptionResponse, HTTPErrorDefinition, HTTPErrorResponse, ValidationErrorResponse
 
 
-def v1_http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
-    Global exception handler for v1 API.
-    This function can be extended to handle specific exceptions and return appropriate responses.
-    """
-    return Response[dict](data=jsonable_encoder(obj=exc), code=ErrorCodes.UNKNOWN_ERROR).to_response(exc.status_code)
-
-
-def v1_validation_exception_handler(request: Request, exc: ValidationError) -> JSONResponse:
-    """
-    Validation exception handler for v1 API.
-    This function can be extended to handle validation errors and return appropriate responses.
+    Generic exception handler API.
     """
     LOGGER.exception(exc)
-    return Response[list](
+    return GenericExceptionResponse(data={"error": "INTERNAL_ERROR"}, code=ErrorCodes.UNKNOWN_ERROR).to_response(
+        HTTP_500_INTERNAL_SERVER_ERROR
+    )
+
+
+def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    """
+    Global exception handler API.
+    """
+    LOGGER.error(f"HTTP {exc.status_code}: {exc.detail}")
+    return HTTPErrorResponse(
+        data=HTTPErrorDefinition(status_code=exc.status_code, error=exc.detail), code=ErrorCodes.HTTP_ERROR
+    ).to_response(exc.status_code, exc.headers)
+
+
+def validation_exception_handler(request: Request, exc: ValidationError) -> JSONResponse:
+    """
+    Validation exception handler API.
+    """
+    LOGGER.error(exc)
+    return ValidationErrorResponse(
         data=jsonable_encoder(exc.errors()),
-        code=ErrorCodes.VALIDATION_ERROR,
-    ).to_response(HTTP_422_UNPROCESSABLE_ENTITY)
+    ).to_response(HTTP_422_UNPROCESSABLE_CONTENT)

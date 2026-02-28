@@ -1,220 +1,152 @@
-from typing import Optional
+from fastapi import APIRouter, Query
 
-from app.core.auth import (
-    Token,
-    add_permission_for_token,
-    add_token,
-    get_token,
-    get_user,
-    list_tokens,
-    remove_permission_for_token,
-    remove_token,
-    require_permission,
-)
-from app.core.db import get_session
-from app.core.metadata import with_metadata
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+import app.core.metadata as metadata
+from app.core.db import SessionDep
+from app.core.log import LOGGER
+from app.core.router import DocedAPIRoute
+from app.core.security.auth import IpDep, UserDep, hash_token, hash_tokens
+from app.core.security.model import User, UserRepository
+from app.schemas.enums import ApiTag
+from app.schemas.response import EMPTY_RESPONSE, WCSResponse
 
-from .domain.response import (
-    PermissionListData,
-    PermissionListResponse,
-    TokenListData,
-    TokenListResponse,
-)
+from .schema import UserInfoRequest, UserInfoResponse
 
-ManageRouter = APIRouter(prefix="/manage", tags=["management"])
+ManageRouter = APIRouter(route_class=DocedAPIRoute, prefix="/manage", tags=[ApiTag.MANAGEMENT])
 
 
-# Permission Management Endpoints
-@ManageRouter.get(
-    "/perm/{user_token}/list",
-    dependencies=[Depends(require_permission)],
-    summary="Get Permissions for Token",
-    description="Get the permissions associated with a specific user token.",
-)
-@with_metadata(permission="management.permissions.read.any")
-async def get_permissions(
-    user_token: str,
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> PermissionListResponse:
+@ManageRouter.get("/user", summary="Get User Info by Token")
+@metadata.permission(permission="admin.users.read")
+async def get_user_info_by_token(
+    session: SessionDep,
+    token: list[str] = Query(),
+) -> WCSResponse[list[UserInfoResponse]]:
     """
-    Get permissions for a given token.
-    :param token: The token to check permissions for.
-    :return: A list of permissions associated with the token.
+    Get information about a user by their token.
     """
+    userRepo = UserRepository(session)
+    tokens = hash_tokens(token)
 
-    token = await get_token(session, user_token)
-    if not token:
-        return PermissionListResponse(data=PermissionListData(token=user_token, permissions=[]))
-    permissions = token.permissions
-    permissions = [perm.permission_id for perm in permissions]
-    return PermissionListResponse(data=PermissionListData(token=user_token, permissions=permissions))
+    users = await userRepo.get_users_by_tokens(tokens)
+    return WCSResponse(data=[UserInfoResponse.model_validate(user) for user in users])
 
 
-@ManageRouter.get(
-    "/perm/list",
-    summary="Get Self Permissions",
-    description="Get the permissions associated with the current user's token.",
-)
-async def get_self_permissions(
-    token: Token | None = Depends(get_user),
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> PermissionListResponse:
-    if not token:
-        return PermissionListResponse(data=PermissionListData(token="", permissions=[]))
-    permissions = token.permissions
-    permissions = [perm.permission_id for perm in permissions]
-    return PermissionListResponse(data=PermissionListData(token=token.token, permissions=permissions))
+@ManageRouter.get("/user/all", summary="List Users")
+@metadata.permission("admin.users.read")
+async def get_users(
+    session: SessionDep,
+    inactive: bool = False,
+) -> WCSResponse[list[UserInfoResponse]]:
+    """
+    List all users with their permissions.
+    """
+    userRepo = UserRepository(session)
+    users = await userRepo.list_users(include_inactive=inactive)
+    return WCSResponse(data=[UserInfoResponse.model_validate(user) for user in users])
 
 
-@ManageRouter.put(
-    "/perm/{user_token}/add",
-    dependencies=[Depends(require_permission)],
-    summary="Add Permission to Token",
-    description="Add a permission to a specific user token.",
-)
-@with_metadata(permission="management.permissions.write.any")
-async def add_permission(
-    user_token: str,
-    permission: str,
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> PermissionListResponse:
-    token = await add_permission_for_token(session, user_token, permission)
-    return PermissionListResponse(
-        data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
+@ManageRouter.get("/user/self", summary="Get Self User Info")
+async def get_self_user_info(user: UserDep) -> WCSResponse[UserInfoResponse]:
+    """
+    Get information about the current user, including permissions and common IPs.
+    """
+    return WCSResponse(data=UserInfoResponse.model_validate(user))
+
+
+@ManageRouter.post("/user/register", summary="Register New User")
+@metadata.rate_limit(1, 3600)
+async def register_user(
+    token: str,
+    session: SessionDep,
+    ip: IpDep = "unknown",
+) -> WCSResponse[UserInfoResponse]:
+    """
+    Register a new user with the given token.
+    """
+    userRepo = UserRepository(session)
+    user = User(
+        token=hash_token(token),
+        is_active=True,
+        permissions=[],
+        creation_ip=ip,
     )
+    await userRepo.save(user)
+    LOGGER.info(f"Registered new user with token: {token}")
+    return WCSResponse(data=UserInfoResponse.model_validate(user))
 
 
-@ManageRouter.post(
-    "/perm/{user_token}/add",
-    dependencies=[Depends(require_permission)],
-    summary="Add Permission to Token (POST) (Bulk)",
-    description="Add permissions to a specific user token using POST method.",
-)
-@with_metadata(permission="management.permissions.write.any")
-async def add_permission_bulk(
-    user_token: str,
-    permissions: list[str],
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> PermissionListResponse:
-    token = await add_permission_for_token(session, user_token, permissions)
-    return PermissionListResponse(
-        data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
-    )
+@ManageRouter.post("/user/create", summary="Create New Users")
+@metadata.permission(permission="admin.users.write")
+async def create_user(
+    tokens: list[UserInfoRequest], session: SessionDep, ip: IpDep = "unknown"
+) -> WCSResponse[list[UserInfoResponse]]:
+    """
+    Create a new user with specified token and permissions.
+    """
+    userRepo = UserRepository(session)
+    created_tokens: list[UserInfoResponse] = []
+    for token_info in tokens:
+        user = User(
+            token=hash_token(token_info.token),
+            is_active=True,
+            permissions=token_info.permissions,
+            expires_at=token_info.expires_at,
+            creation_ip=ip,
+        )
+        await userRepo.save(user)
+        created_tokens.append(UserInfoResponse.model_validate(user))
+
+    LOGGER.info(f"Created {len(created_tokens)} new users: {[hash_token(u.token) for u in created_tokens]}")
+    return WCSResponse(data=created_tokens)
 
 
-@ManageRouter.delete(
-    "/perm/{user_token}/revoke",
-    dependencies=[Depends(require_permission)],
-    summary="Revoke Permission from Token",
-    description="Revoke a permission from a specific user token.",
-)
-@with_metadata(permission="management.permissions.write.any")
-async def revoke_permission(
-    user_token: str,
-    permission: str,
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> PermissionListResponse:
-    token = await remove_permission_for_token(session, user_token, permission)
-    return PermissionListResponse(
-        data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
-    )
+@ManageRouter.delete("/user", summary="Delete User")
+@metadata.permission(permission="admin.users.write")
+async def delete_user(tokens: list[str], session: SessionDep) -> WCSResponse[dict]:
+    """
+    Delete a user by their token string.
+    """
+    tokens = hash_tokens(tokens)
+    userRepo = UserRepository(session)
+    await userRepo.delete(tokens)
+    LOGGER.info(f"Deleted {len(tokens)} users: {tokens}")
+    return EMPTY_RESPONSE
 
 
-@ManageRouter.post(
-    "/perm/{user_token}/revoke",
-    dependencies=[Depends(require_permission)],
-    summary="Revoke Permission from Token (POST) (Bulk)",
-    description="Revoke permissions from a specific user token using POST method.",
-)
-@with_metadata(permission="management.permissions.write.any")
-async def revoke_permission_bulk(
-    user_token: str,
-    permissions: list[str],
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> PermissionListResponse:
-    token = await remove_permission_for_token(session, user_token, permissions)
-    return PermissionListResponse(
-        data=PermissionListData(token=user_token, permissions=[perm.permission_id for perm in token.permissions])
-    )
+@ManageRouter.put("/user/permissions", summary="Add Permissions to User")
+@metadata.permission(permission="admin.users.write")
+async def add_permissions_to_user(
+    token_str: list[str], permissions: list[str], session: SessionDep
+) -> WCSResponse[list[UserInfoResponse]]:
+    """
+    Add permissions to existing users.
+    """
+    userRepo = UserRepository(session)
+    token_strs = hash_tokens(token_str)
+    users = await userRepo.get_users_by_tokens(token_strs, include_inactive=True)
+
+    for user in users:
+        user.permissions = list(set(user.permissions + permissions))
+
+    updated_user_infos = [UserInfoResponse.model_validate(user) for user in users]
+    LOGGER.info(f"Added permissions {permissions} to users: {token_strs}")
+    return WCSResponse(data=updated_user_infos)
 
 
-# Token Management Endpoints
-@ManageRouter.get(
-    "/token/list",
-    dependencies=[Depends(require_permission)],
-    summary="List All Tokens",
-    description="Get a list of all user tokens.",
-)
-@with_metadata(permission="management.tokens.read.any")
-async def list_all_tokens(
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> TokenListResponse:
-    tokens = await list_tokens(session)
-    return TokenListResponse(data=TokenListData(tokens=[token.token for token in tokens]))
+@ManageRouter.delete("/user/permissions", summary="Remove Permissions from User")
+@metadata.permission(permission="admin.users.write")
+async def remove_permissions_from_user(
+    token_str: list[str], permissions: list[str], session: SessionDep
+) -> WCSResponse[list[UserInfoResponse]]:
+    """
+    Remove permissions from existing users.
+    """
+    token_strs = hash_tokens(token_str)
+    userRepo = UserRepository(session)
+    users = await userRepo.get_users_by_tokens(token_strs, include_inactive=True)
 
+    for user in users:
+        user.permissions = list(set(user.permissions) - set(permissions))
 
-@ManageRouter.put(
-    "/token/{user_token}/create",
-    dependencies=[Depends(require_permission)],
-    summary="Create Token",
-    description="Create a new user token.",
-)
-@with_metadata(permission="management.tokens.write.any")
-async def create_token(
-    user_token: str,
-    permission: Optional[str] = None,
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> TokenListResponse:
-    if not permission:
-        await add_token(session, user_token, [])
-    else:
-        await add_token(session, user_token, permission)
-    return TokenListResponse(data=TokenListData(tokens=[user_token]))
-
-
-@ManageRouter.post(
-    "/token/{user_token}/create",
-    dependencies=[Depends(require_permission)],
-    summary="Create Token (POST) (Bulk)",
-    description="Create new user tokens using POST method.",
-)
-@with_metadata(permission="management.tokens.write.any")
-async def create_token_bulk(
-    user_tokens: list[str],
-    permissions: list[str],
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> TokenListResponse:
-    await add_token(session, user_tokens, permissions)
-    return TokenListResponse(data=TokenListData(tokens=user_tokens))
-
-
-@ManageRouter.delete(
-    "/token/{user_token}/remove",
-    dependencies=[Depends(require_permission)],
-    summary="Remove Token",
-    description="Remove a specific user token.",
-)
-@with_metadata(permission="management.tokens.write.any")
-async def delete_token(
-    user_token: str,
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> TokenListResponse:
-    await remove_token(session, user_token)
-    return TokenListResponse(data=TokenListData(tokens=[user_token]))
-
-
-@ManageRouter.post(
-    "/token/{user_token}/remove",
-    dependencies=[Depends(require_permission)],
-    summary="Remove Token (POST) (Bulk)",
-    description="Remove specific user tokens using POST method.",
-)
-@with_metadata(permission="management.tokens.write.any")
-async def delete_token_bulk(
-    user_tokens: list[str],
-    session: async_sessionmaker[AsyncSession] = Depends(get_session),
-) -> TokenListResponse:
-    await remove_token(session, user_tokens)
-    return TokenListResponse(data=TokenListData(tokens=user_tokens))
+    updated_user_infos = [UserInfoResponse.model_validate(user) for user in users]
+    LOGGER.info(f"Removed permissions {permissions} from users: {token_strs}")
+    return WCSResponse(data=updated_user_infos)

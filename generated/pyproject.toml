@@ -1,0 +1,20 @@
+[project]
+name = "wynnsource-proto"
+version = "0.1.0"
+description = "The generated protobuf code for WynnSource. Basiclly a placeholder for editable installation."
+readme = "README.md"
+authors = [{ name = "FYWinds", email = "i@fywinds.com" }]
+requires-python = ">=3.12"
+dependencies = [
+    "protobuf>=6.33.5",
+    "types-protobuf>=6.32.1.20251210",
+]
+
+
+[build-system]
+requires = ["uv_build >= 0.10.4, <0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "wynnsource"
+module-root = ""

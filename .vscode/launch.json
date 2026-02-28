@@ -13,10 +13,10 @@
                 "app.main:app",
                 "--reload"
             ],
-            "jinja": true,
+            "jinja": false,
             "justMyCode": false,
             "env": {
-                "WCS_ADMIN_TOKEN": "local-test-token"
+                "WCS_ADMIN_TOKEN": "wcsadmin"
             },
         }
     ]

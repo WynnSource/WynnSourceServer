@@ -1,42 +1,89 @@
 [project]
 name = "wynnsource_server"
-version = "0.0.1"
-description = "The server backend for WynnSource Project"
+version = "0.1.0"
+description = "The server component of WynnSource - a Wynncraft Crowdsourcing Mod."
 readme = "README.md"
-requires-python = ">=3.12, <3.13"
-license = "AGPL-3.0"
+requires-python = ">=3.12, <4.0"
+license = "AGPL-3.0-or-later"
 authors = [{ name = "FYWinds", email = "i@windis.cn" }]
 keywords = ["wynncraft", "wynnsource", "wynnsource-server"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "alembic>=1.18.4",
     "apscheduler>=3.11.0",
     "asyncpg>=0.30.0",
     "fastapi[standard]>=0.115.12",
+    "httpx>=0.28.1",
+    "jsonschema>=4.26.0",
     "loguru>=0.7.3",
+    "orjson>=3.11.7",
     "pydantic-settings>=2.10.1",
+    "redis>=7.1.1",
+    "scalar-fastapi>=1.6.2",
     "sqlalchemy>=2.0.40",
+    "wynnsource-proto",
 ]
 
+[dependency-groups]
+dev = ["basedpyright>=1.38.1", "ruff>=0.15.1"]
+test = ["pytest>=8.3.5", "pytest-cov>=6.1.1", "pytest-xdist>=3.6.1"]
+
+
+[tool.ruff.format]
+line-ending = "lf"
+
 [tool.ruff]
-line-length = 120
-target-version = "py38"
-src = ["src"]
+line-length = 100
+target-version = "py312"
+src = ["app"]
+exclude = ["generated"]
 
 [tool.ruff.lint]
-select = ["W", "E", "F", "UP", "C4", "T10", "T20", "PYI", "PT", "Q"]
-ignore = ["E402", "UP037"]
+select = [
+    "F",     # Pyflakes
+    "W",     # pycodestyle warnings
+    "E",     # pycodestyle errors
+    "I",     # isort
+    "UP",    # pyupgrade
+    "ASYNC", # flake8-async
+    "C4",    # flake8-comprehensions
+    "T10",   # flake8-debugger
+    "T20",   # flake8-print
+    "PYI",   # flake8-pyi
+    "PT",    # flake8-pytest-style
+    "Q",     # flake8-quotes
+    "TID",   # flake8-tidy-imports
+    "RUF",   # Ruff-specific rules
+]
+ignore = [
+    "E402",   # module-import-not-at-top-of-file
+    "UP037",  # quoted-annotation
+    "RUF001", # ambiguous-unicode-character-string
+    "RUF002", # ambiguous-unicode-character-docstring
+    "RUF003", # ambiguous-unicode-character-comment
+]
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
 
-[tool.pytest.ini_options]
-addopts = "-n 4 --cov=src --cov-report xml:cov.xml"
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests/*", "wynnsource"]
 
-[dependency-groups]
-dev = ["aiosqlite>=0.21.0"]
-test = ["pytest>=8.3.5", "pytest-cov>=6.1.1", "pytest-xdist>=3.6.1"]
+[tool.pytest.ini_options]
+addopts = "-n 4 --cov=app --cov-report xml:cov.xml"
+
+[tool.uv.workspace]
+members = ["generated"]
+
+[tool.uv.sources]
+wynnsource-proto = { workspace = true, editable = true }
+
+[tool.basedpyright]
+typeCheckingMode = "basic"
+include = ["app", "tests/*"]
+exclude = ["generated"]

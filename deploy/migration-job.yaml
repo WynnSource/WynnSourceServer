@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wynnsource-migration
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      containers:
+        - name: migration
+          image: ghcr.io/wynnsource/wynnsource-server:latest
+          command: ["uv", "run", "alembic", "upgrade", "head"]
+          envFrom:
+            - secretRef:
+                name: wynnsource-secrets
+      restartPolicy: OnFailure
