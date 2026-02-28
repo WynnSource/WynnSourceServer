@@ -17,4 +17,30 @@ spec:
           envFrom:
             - secretRef:
                 name: wynnsource-secrets
+          env:
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: wynnsource-pg-app
+                  key: host
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: wynnsource-pg-app
+                  key: port
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wynnsource-pg-app
+                  key: user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wynnsource-pg-app
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: wynnsource-pg-app
+                  key: dbname
       restartPolicy: OnFailure

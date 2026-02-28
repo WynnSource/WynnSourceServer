@@ -55,6 +55,10 @@ spec:
                 secretKeyRef:
                   name: wynnsource-pg-app
                   key: dbname
+            - name: REDIS_HOST
+              value: wynnsource-redis
+            - name: REDIS_PORT
+              value: "6379"
           livenessProbe:
             httpGet: { path: /healthz, port: 8000 }
             initialDelaySeconds: 10
