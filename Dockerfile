@@ -31,6 +31,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
+RUN addgroup --system wynnsource && adduser --system --ingroup wynnsource wynnsource
+RUN chown -R wynnsource:wynnsource /app
+USER wynnsource
+
 # Run the FastAPI application
 EXPOSE 8000
 CMD fastapi run
