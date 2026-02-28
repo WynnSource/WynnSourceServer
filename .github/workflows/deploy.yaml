@@ -52,5 +52,5 @@ jobs:
         with:
           package-type: container
           package-name: wynnsource-server
-          min-versions-to-keep: 1
+          min-versions-to-keep: 3
           delete-only-untagged-versions: true
