@@ -4,8 +4,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - WCS_DB_POSTGRES_DSN=postgresql+asyncpg://user:password@db:5432/wcs_db
-      - WCS_DB_REDIS_DSN=redis://redis:6379/0
+      - POSTGRES_HOST=db 
+      - REDIS_HOST=redis
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=wcs_db 
       - WCS_ADMIN_TOKEN=example_admin_token
     depends_on:
       migration:
@@ -18,9 +21,13 @@ services:
 
   migration:
     build: .
-    command: uv run alembic upgrade head
+    command: uv run --no-dev alembic upgrade head
     environment:
-      - WCS_DB_POSTGRES_DSN=postgresql+asyncpg://user:password@db:5432/wcs_db
+      - POSTGRES_HOST=db 
+      - REDIS_HOST=redis
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=wcs_db 
     depends_on:
       db:
         condition: service_healthy
