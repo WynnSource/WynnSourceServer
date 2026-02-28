@@ -2,6 +2,8 @@ apiVersion: redis.redis.opstreelabs.in/v1beta2
 kind: Redis
 metadata:
   name: wynnsource-redis
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   kubernetesConfig:
     image: redis:7-alpine
