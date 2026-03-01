@@ -9,8 +9,15 @@ from wynnsource.item.gear_pb2 import GearType
 from .model import BetaItemRepository
 from .schema import NewItemSubmission
 
+allowed_version = ["v0.2.2"]
+
 
 async def handle_item_submission(submission: NewItemSubmission, session: AsyncSession) -> None:
+    if not any(version in submission.mod_version for version in allowed_version):
+        LOGGER.debug(
+            f"Submission version {submission.mod_version} is not allowed, skipping submission"
+        )
+        return
     itemRepo = BetaItemRepository(session)
     succeeds = 0
     for item in submission.items:
