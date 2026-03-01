@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.log import LOGGER
 from wynnsource import WynnSourceItem
-from wynnsource.item.gear_pb2 import GearType
 
 from .model import BetaItemRepository
 from .schema import NewItemSubmission
@@ -62,19 +61,6 @@ def check_item_validity(item: WynnSourceItem) -> bool:
     if not item.gear.HasField("unidentified"):
         return False
     if len(item.gear.unidentified.identifications) == 0:
-        return False
-    if (
-        item.gear.type
-        in [
-            GearType.GEAR_TYPE_BOW,
-            GearType.GEAR_TYPE_WAND,
-            GearType.GEAR_TYPE_DAGGER,
-            GearType.GEAR_TYPE_SPEAR,
-            GearType.GEAR_TYPE_RELIK,
-        ]
-    ) and not item.gear.HasField("weapon_stats"):
-        return False
-    if not item.gear.HasField("armor_stats"):
         return False
 
     return True
