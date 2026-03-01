@@ -8,7 +8,7 @@ from wynnsource import WynnSourceItem
 from .model import BetaItemRepository
 from .schema import NewItemSubmission
 
-allowed_version = ["0.2.2"]
+allowed_version = ["0.2.2", "0.2.3", "0.2.4"]
 
 
 async def handle_item_submission(submission: NewItemSubmission, session: AsyncSession) -> None:
