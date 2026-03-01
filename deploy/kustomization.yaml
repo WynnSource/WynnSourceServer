@@ -11,4 +11,4 @@ resources:
 images:
 - name: ghcr.io/wynnsource/wynnsource-server
   newName: ghcr.io/wynnsource/wynnsource-server
-  newTag: 1747e7c62035ed2dd64176f7f63faa2029bc3aab
+  newTag: e3d81b70bc888f585ed00c07c931afb6b99cc22c
