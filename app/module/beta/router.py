@@ -8,7 +8,12 @@ from app.schemas.enums.tag import ApiTag
 from app.schemas.response import EmptyResponse, WCSResponse
 
 from .schema import BetaItemListResponse, NewItemSubmission
-from .service import delete_beta_item, get_beta_items, handle_item_submission
+from .service import (
+    get_beta_items,
+    handle_clear_beta_items,
+    handle_delete_beta_items,
+    handle_item_submission,
+)
 
 BetaRouter = APIRouter(route_class=DocedAPIRoute, prefix="/beta", tags=[ApiTag.BETA])
 
@@ -46,7 +51,7 @@ async def delete_beta_items(items: list[str], session: SessionDep) -> EmptyRespo
     """
     Delete items from the beta list by name.
     """
-    await delete_beta_item(items, session)
+    await handle_delete_beta_items(items, session)
     return EmptyResponse()
 
 
@@ -56,5 +61,5 @@ async def clear_beta_items(session: SessionDep) -> EmptyResponse:
     """
     Clear all items from the beta list.
     """
-    await clear_beta_items(session)
+    await handle_clear_beta_items(session)
     return EmptyResponse()

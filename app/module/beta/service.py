@@ -30,7 +30,7 @@ async def get_beta_items(session: AsyncSession) -> list[bytes]:
     return [item.item for item in beta_items]
 
 
-async def delete_beta_item(items: list[str], session: AsyncSession):
+async def handle_delete_beta_items(items: list[str], session: AsyncSession):
     itemRepo = BetaItemRepository(session)
     deleted_count = 0
     for item in items:
@@ -44,7 +44,7 @@ async def delete_beta_item(items: list[str], session: AsyncSession):
     LOGGER.info(f"Deleted {deleted_count}/{len(items)} items from beta")
 
 
-async def clear_beta_items(session: AsyncSession):
+async def handle_clear_beta_items(session: AsyncSession):
     itemRepo = BetaItemRepository(session)
     beta_items = await itemRepo.list_items()
     deleted_count = 0
