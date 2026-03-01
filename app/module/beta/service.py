@@ -28,3 +28,32 @@ async def get_beta_items(session: AsyncSession) -> list[bytes]:
     itemRepo = BetaItemRepository(session)
     beta_items = await itemRepo.list_items()
     return [item.item for item in beta_items]
+
+
+async def delete_beta_item(items: list[str], session: AsyncSession):
+    itemRepo = BetaItemRepository(session)
+    deleted_count = 0
+    for item in items:
+        try:
+            await itemRepo.delete_item(item)
+            deleted_count += 1
+        except Exception as e:
+            LOGGER.debug(f"Failed to delete item: {item}, error: {e}")
+            # Silently ignore failed deletions
+            pass
+    LOGGER.info(f"Deleted {deleted_count}/{len(items)} items from beta")
+
+
+async def clear_beta_items(session: AsyncSession):
+    itemRepo = BetaItemRepository(session)
+    beta_items = await itemRepo.list_items()
+    deleted_count = 0
+    for item in beta_items:
+        try:
+            await itemRepo.delete_item(item.name)
+            deleted_count += 1
+        except Exception as e:
+            LOGGER.debug(f"Failed to delete item: {item.name}, error: {e}")
+            # Silently ignore failed deletions
+            pass
+    LOGGER.info(f"Cleared {deleted_count} items from beta")

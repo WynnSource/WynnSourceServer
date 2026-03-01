@@ -3,10 +3,35 @@
 First create the necessary secrets for database and admin token access. Replace the placeholders with your actual values.
 ```bash
 kubectl -n wynnsource-dev create secret generic wynnsource-secrets \
-  --from-literal=WCS_DB_POSTGRES_DSN='postgresql+asyncpg://wynnsource:<password>@wynnsource-pg-rw:5432/wcs_db' \
-  --from-literal=WCS_DB_REDIS_DSN='redis://wynnsource-redis:6379/0' \
   --from-literal=WCS_ADMIN_TOKEN='<your-admin-token>'
 ```
+Or you can use sealed secrets for better security.
+
+Then use this as an example to deploy the application using ArgoCD.
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: wynnsource-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:WynnSource/WynnSourceServer.git
+    targetRevision: dev
+    path: deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: wynnsource-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+You have to add your ingress configuration as well, 
+also make sure there is the `X-Real-IP` header from the ingress controller for proper client IP logging and rate limiting.
 
 ## License
 

@@ -33,3 +33,10 @@ class BetaItemRepository(BaseRepository):
     async def list_items(self) -> Sequence[BetaItem]:
         result = await self.session.execute(select(BetaItem))
         return result.scalars().all()
+
+    async def delete_item(self, name: str) -> None:
+        result = await self.session.execute(select(BetaItem).where(BetaItem.name == name))
+        beta_item = result.scalar_one_or_none()
+        if beta_item:
+            await self.session.delete(beta_item)
+            await self.session.flush()
