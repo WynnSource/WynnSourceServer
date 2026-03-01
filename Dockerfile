@@ -40,4 +40,4 @@ USER 1000
 
 # Run the FastAPI application
 EXPOSE 8000
-CMD fastapi run
+CMD fastapi run --forwarded-allow-ips="127.0.0.1,10.0.0.0/8,[::1]"
