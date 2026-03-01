@@ -46,7 +46,7 @@ def check_item_validity(item: WynnSourceItem) -> bool:
         return False
     if item.rarity == 0:
         return False
-    if item.HasField("gear"):
+    if not item.HasField("gear"):
         return False
     if item.gear.type == 0:
         return False
@@ -67,9 +67,9 @@ def check_item_validity(item: WynnSourceItem) -> bool:
             GearType.GEAR_TYPE_SPEAR,
             GearType.GEAR_TYPE_RELIK,
         ]
-    ) and item.gear.weapon_stats is None:
+    ) and not item.gear.HasField("weapon_stats"):
         return False
-    if item.gear.armor_stats is None:
+    if not item.gear.HasField("armor_stats"):
         return False
 
     return True
