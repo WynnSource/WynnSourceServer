@@ -20,7 +20,7 @@ BetaRouter = APIRouter(route_class=DocedAPIRoute, prefix="/beta", tags=[ApiTag.B
 
 @BetaRouter.get("/items", summary="List Beta Items")
 @metadata.rate_limit(limit=10, period=60)
-@metadata.cached(expire=300)
+@metadata.cached(expire=30)
 async def list_beta_items(
     session: SessionDep,
     item_return_type: ItemReturnType = ItemReturnType.B64,
