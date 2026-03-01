@@ -18,17 +18,21 @@ class BetaItem(Base):
 
 
 class BetaItemRepository(BaseRepository):
-    async def add_item(self, item: WynnSourceItem) -> BetaItem:
+    async def add_item(self, item: WynnSourceItem):
         existing = (
             await self.session.execute(select(BetaItem).where(BetaItem.name == item.name))
         ).scalar_one_or_none()
         if existing:
-            raise ValueError("Item already exists in beta list")
-        beta_item = BetaItem(name=item.name, item=item.SerializeToString())
-        self.session.add(beta_item)
+            existing.item = item.SerializeToString()
+            self.session.add(existing)
+        else:
+            beta_item = BetaItem(name=item.name, item=item.SerializeToString())
+            self.session.add(beta_item)
         await self.session.flush()
-        await self.session.refresh(beta_item)
-        return beta_item
+
+    async def get_item(self, name: str) -> BetaItem | None:
+        result = await self.session.execute(select(BetaItem).where(BetaItem.name == name))
+        return result.scalar_one_or_none()
 
     async def list_items(self) -> Sequence[BetaItem]:
         result = await self.session.execute(select(BetaItem))

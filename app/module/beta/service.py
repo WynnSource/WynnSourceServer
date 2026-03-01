@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.log import LOGGER
 from wynnsource import WynnSourceItem
+from wynnsource.item.gear_pb2 import GearType
 
 from .model import BetaItemRepository
 from .schema import NewItemSubmission
@@ -14,14 +15,64 @@ async def handle_item_submission(submission: NewItemSubmission, session: AsyncSe
     succeeds = 0
     for item in submission.items:
         try:
-            await itemRepo.add_item(WynnSourceItem.FromString(b64decode(item)))
+            item = WynnSourceItem.FromString(b64decode(item))
+            existing = await itemRepo.get_item(item.name)
+            existing = WynnSourceItem.FromString(existing.item) if existing else None
+            if not check_item_validity(item):
+                LOGGER.debug(f"Item from submission is invalid: {item.name}")
+                continue
+            if existing and item == existing:
+                LOGGER.debug(f"Item from submission is identical to existing item: {item.name}")
+                continue
+            if existing and item != existing:
+                LOGGER.debug(
+                    f"Item from submission is different from existing item: {item.name},"
+                    + " overwriting"
+                )
+            await itemRepo.add_item(item)
             succeeds += 1
         except Exception as e:
-            LOGGER.debug(f"Failed to add item from submission: {item}, error: {e}")
-            # Silently ignore duplicate item submissions or invalid items
+            LOGGER.debug(f"Failed to add item from submission, error: {e}")
+            # Silently ignore failed items
             pass
 
     LOGGER.info(f"Processed {succeeds}/{len(submission.items)} items from beta submission")
+
+
+def check_item_validity(item: WynnSourceItem) -> bool:
+    if item.name == "":
+        return False
+    if item.level == 0:
+        return False
+    if item.rarity == 0:
+        return False
+    if item.HasField("gear"):
+        return False
+    if item.gear.type == 0:
+        return False
+    if not item.gear.HasField("requirements"):
+        return False
+    if not item.gear.HasField("unidentified"):
+        return False
+    if (not item.gear.unidentified.HasField("identifications")) or len(
+        item.gear.unidentified.identifications
+    ) == 0:
+        return False
+    if (
+        item.gear.type
+        in [
+            GearType.GEAR_TYPE_BOW,
+            GearType.GEAR_TYPE_WAND,
+            GearType.GEAR_TYPE_DAGGER,
+            GearType.GEAR_TYPE_SPEAR,
+            GearType.GEAR_TYPE_RELIK,
+        ]
+    ) and item.gear.weapon_stats is None:
+        return False
+    if item.gear.armor_stats is None:
+        return False
+
+    return True
 
 
 async def get_beta_items(session: AsyncSession) -> list[bytes]:
