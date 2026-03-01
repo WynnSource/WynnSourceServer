@@ -54,9 +54,7 @@ def check_item_validity(item: WynnSourceItem) -> bool:
         return False
     if not item.gear.HasField("unidentified"):
         return False
-    if (not item.gear.unidentified.HasField("identifications")) or len(
-        item.gear.unidentified.identifications
-    ) == 0:
+    if len(item.gear.unidentified.identifications) == 0:
         return False
     if (
         item.gear.type
