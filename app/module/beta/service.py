@@ -9,7 +9,7 @@ from wynnsource.item.gear_pb2 import GearType
 from .model import BetaItemRepository
 from .schema import NewItemSubmission
 
-allowed_version = ["v0.2.2"]
+allowed_version = ["0.2.2"]
 
 
 async def handle_item_submission(submission: NewItemSubmission, session: AsyncSession) -> None:
