@@ -7,11 +7,11 @@ from app.core.log import LOGGER
 
 
 class BetaConfig(BaseSettings):
-    _beta_allowed_versions: Annotated[str, Field(alias="BETA_ALLOWED_VERSIONS")] = ""
+    beta_allowed_versions: Annotated[str, Field(alias="BETA_ALLOWED_VERSIONS")] = ""
 
     @property
     def allowed_versions(self) -> list[str]:
-        return [version.strip() for version in self._beta_allowed_versions.split(",")]
+        return [version.strip() for version in self.beta_allowed_versions.split(",")]
 
 
 BETA_CONFIG = BetaConfig()
