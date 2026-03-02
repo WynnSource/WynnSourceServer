@@ -5,10 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.log import LOGGER
 from wynnsource import WynnSourceItem
 
+from .config import BETA_CONFIG
 from .model import BetaItemRepository
 from .schema import NewItemSubmission
 
-allowed_version = ["0.2.2", "0.2.3", "0.2.4"]
+allowed_version = BETA_CONFIG.allowed_versions
 
 
 async def handle_item_submission(submission: NewItemSubmission, session: AsyncSession) -> None:
