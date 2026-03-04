@@ -31,6 +31,8 @@ async def handle_item_submission(submission: NewItemSubmission, session: AsyncSe
                 continue
             if existing and item != existing:
                 LOGGER.debug(f"Item from submission is different from existing item: {item.name}," + " overwriting")
+            if existing and existing.gear.powders:
+                item.gear.powders.extend(existing.gear.powders)
             await itemRepo.add_item(item)
             succeeds += 1
         except Exception as e:
