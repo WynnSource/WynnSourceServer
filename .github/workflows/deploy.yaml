@@ -30,7 +30,6 @@ jobs:
           package-type: container
           package-name: wynnsource-server
           num-old-versions-to-delete: 99
-          delete-only-untagged-versions: true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build and push
