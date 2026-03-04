@@ -29,7 +29,6 @@ jobs:
         with:
           package-type: container
           package-name: wynnsource-server
-          min-versions-to-keep: 1
           num-old-versions-to-delete: 99
           delete-only-untagged-versions: true
       - name: Set up Docker Buildx
