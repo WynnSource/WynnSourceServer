@@ -73,7 +73,9 @@ class DocedAPIRoute(APIRoute):
                     responses[status_code]["description"] = doc["description"]
 
             description = self.add_description(
-                f"⌛ This response is cached for `{format_time(meta.cache.expire)}`.", description, endpoint
+                f"⌛ This response is cached for `{format_time(meta.cache.expire)}`.",
+                description,
+                endpoint,
             )
 
         # Add permission info to description and inject permission dependency
@@ -151,13 +153,17 @@ class DocedAPIRoute(APIRoute):
             if not has_request:
                 new_params.append(
                     inspect.Parameter(
-                        f"{INJECTED_NAMESPACE}request", inspect.Parameter.KEYWORD_ONLY, annotation=Request
+                        f"{INJECTED_NAMESPACE}request",
+                        inspect.Parameter.KEYWORD_ONLY,
+                        annotation=Request,
                     )
                 )
             if not has_response:
                 new_params.append(
                     inspect.Parameter(
-                        f"{INJECTED_NAMESPACE}response", inspect.Parameter.KEYWORD_ONLY, annotation=Response
+                        f"{INJECTED_NAMESPACE}response",
+                        inspect.Parameter.KEYWORD_ONLY,
+                        annotation=Response,
                     )
                 )
             setattr(injected_endpoint, "__signature__", sig.replace(parameters=new_params))

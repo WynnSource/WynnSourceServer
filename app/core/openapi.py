@@ -31,18 +31,39 @@ def custom_openapi(app: FastAPI):
 RATE_LIMIT_DOCS = {
     200: {
         "headers": {
-            "X-RateLimit-Limit": {"schema": {"type": "integer"}, "description": "Requests allowed per window"},
-            "X-RateLimit-Remaining": {"schema": {"type": "integer"}, "description": "Requests remaining"},
-            "X-RateLimit-Reset": {"schema": {"type": "integer"}, "description": "Seconds until reset"},
+            "X-RateLimit-Limit": {
+                "schema": {"type": "integer"},
+                "description": "Requests allowed per window",
+            },
+            "X-RateLimit-Remaining": {
+                "schema": {"type": "integer"},
+                "description": "Requests remaining",
+            },
+            "X-RateLimit-Reset": {
+                "schema": {"type": "integer"},
+                "description": "Seconds until reset",
+            },
         },
     },
     429: {
         "description": "Too Many Requests",
         "headers": {
-            "X-RateLimit-Limit": {"schema": {"type": "integer"}, "description": "Requests allowed per window"},
-            "X-RateLimit-Remaining": {"schema": {"type": "integer"}, "description": "Requests remaining"},
-            "X-RateLimit-Reset": {"schema": {"type": "integer"}, "description": "Seconds until reset"},
-            "X-Retry-After": {"schema": {"type": "integer"}, "description": "Seconds until you can retry"},
+            "X-RateLimit-Limit": {
+                "schema": {"type": "integer"},
+                "description": "Requests allowed per window",
+            },
+            "X-RateLimit-Remaining": {
+                "schema": {"type": "integer"},
+                "description": "Requests remaining",
+            },
+            "X-RateLimit-Reset": {
+                "schema": {"type": "integer"},
+                "description": "Seconds until reset",
+            },
+            "X-Retry-After": {
+                "schema": {"type": "integer"},
+                "description": "Seconds until you can retry",
+            },
         },
     },
 }
@@ -50,7 +71,10 @@ RATE_LIMIT_DOCS = {
 CACHE_DOCS = {
     200: {
         "headers": {
-            "X-Cache": {"schema": {"type": "string", "enum": ["HIT", "MISS"]}, "description": "Cache status"},
+            "X-Cache": {
+                "schema": {"type": "string", "enum": ["HIT", "MISS"]},
+                "description": "Cache status",
+            },
         }
     }
 }

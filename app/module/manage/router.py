@@ -53,7 +53,7 @@ async def get_self_user_info(user: UserDep) -> WCSResponse[UserInfoResponse]:
 
 
 @ManageRouter.post("/user/register", summary="Register New User")
-@metadata.rate_limit(1, 3600)
+# @metadata.rate_limit(1, 3600)
 async def register_user(
     token: str,
     session: SessionDep,
@@ -95,7 +95,9 @@ async def create_user(
         await userRepo.save(user)
         created_tokens.append(UserInfoResponse.model_validate(user))
 
-    LOGGER.info(f"Created {len(created_tokens)} new users: {[hash_token(u.token) for u in created_tokens]}")
+    LOGGER.info(
+        f"Created {len(created_tokens)} new users: {[hash_token(u.token) for u in created_tokens]}"
+    )
     return WCSResponse(data=created_tokens)
 
 

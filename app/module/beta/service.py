@@ -7,16 +7,14 @@ from wynnsource import WynnSourceItem
 
 from .config import BETA_CONFIG
 from .model import BetaItemRepository
-from .schema import NewItemSubmission
+from .schema import ItemPatchSubmission, NewItemSubmission, PatchableItemField
 
 allowed_version = BETA_CONFIG.allowed_versions
 
 
 async def handle_item_submission(submission: NewItemSubmission, session: AsyncSession) -> None:
     if not any(version in submission.mod_version for version in allowed_version):
-        LOGGER.debug(
-            f"Submission version {submission.mod_version} is not allowed, skipping submission"
-        )
+        LOGGER.debug(f"Submission version {submission.mod_version} is not allowed, skipping submission")
         return
     itemRepo = BetaItemRepository(session)
     succeeds = 0
@@ -32,10 +30,7 @@ async def handle_item_submission(submission: NewItemSubmission, session: AsyncSe
                 LOGGER.debug(f"Item from submission is identical to existing item: {item.name}")
                 continue
             if existing and item != existing:
-                LOGGER.debug(
-                    f"Item from submission is different from existing item: {item.name},"
-                    + " overwriting"
-                )
+                LOGGER.debug(f"Item from submission is different from existing item: {item.name}," + " overwriting")
             await itemRepo.add_item(item)
             succeeds += 1
         except Exception as e:
@@ -71,6 +66,40 @@ async def get_beta_items(session: AsyncSession) -> list[bytes]:
     itemRepo = BetaItemRepository(session)
     beta_items = await itemRepo.list_items()
     return [item.item for item in beta_items]
+
+
+async def get_beta_items_by_name(session: AsyncSession, name: list[str]) -> list[bytes]:
+    itemRepo = BetaItemRepository(session)
+    beta_items = await itemRepo.get_items_by_names(name)
+    return [item.item for item in beta_items]
+
+
+async def handle_patch_submission(submission: ItemPatchSubmission, session: AsyncSession) -> None:
+    if not any(version in submission.mod_version for version in allowed_version):
+        LOGGER.debug(f"Submission version {submission.mod_version} is not allowed, skipping submission")
+        return
+    itemRepo = BetaItemRepository(session)
+    succeeds = 0
+    match submission.patch:
+        case PatchableItemField.POWDER:
+            for item in submission.items:
+                try:
+                    item = WynnSourceItem.FromString(b64decode(item))
+                    existing = await itemRepo.get_item(item.name)
+                    if not existing:
+                        LOGGER.debug(f"Item from patch submission does not exist in beta: {item.name}")
+                        continue
+                    existing_item = WynnSourceItem.FromString(existing.item)
+                    del existing_item.gear.powders[:]
+                    existing_item.gear.powders.extend(item.gear.powders)
+                    await itemRepo.add_item(existing_item)
+                    succeeds += 1
+                except Exception as e:
+                    LOGGER.debug(f"Failed to patch item from submission, error: {e}")
+                    # Silently ignore failed items
+                    pass
+
+    LOGGER.info(f"Processed {succeeds}/{len(submission.items)} items from beta patch submission")
 
 
 async def handle_delete_beta_items(items: list[str], session: AsyncSession):

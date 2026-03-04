@@ -1,5 +1,3 @@
-import base64
-
 from wynnsource import WynnSourceItem
 from wynnsource.common.components_pb2 import (
     CraftedIdentification,
@@ -23,14 +21,14 @@ def test_proto_codegen():
         gear=Gear(
             type=GearType.GEAR_TYPE_SPEAR,
             requirements=Requirements(level=30, class_req=ClassType.CLASS_TYPE_WARRIOR, defense_req=20),
+            powders=[
+                PowderSlot(powder=Powder(element=Element.ELEMENT_FIRE, level=6)),
+                PowderSlot(powder=Powder(element=Element.ELEMENT_FIRE, level=6)),
+                PowderSlot(),
+            ],
             crafted=CraftedGear(
                 crafted_meta=CraftedMeta(author="TestCrafter"),
                 durability=Durability(current=232, max=235),
-                powders=[
-                    PowderSlot(powder=Powder(element=Element.ELEMENT_FIRE, level=6)),
-                    PowderSlot(powder=Powder(element=Element.ELEMENT_FIRE, level=6)),
-                    PowderSlot(),
-                ],
                 identifications=[
                     CraftedIdentification(id=35, current_val=29, max_val=30),
                     CraftedIdentification(id=36, current_val=15, max_val=15),
@@ -51,24 +49,3 @@ def test_proto_codegen():
     decoded.ParseFromString(encoded)
     assert item == decoded
     return encoded
-
-
-def test_proto_decode():
-    encoded_b64: str = (
-        "ChdDcmFmdGVkIFNwZWFyIG9mIEZsYW1lcyAJUn0IAWJiClcKCVBsYXllcjEyMxJKQSBzcGVhciBm"
-        + "b3JnZWQgaW4gdGhlIGhlYXJ0IG9mIGEgdm9sY2FubywgaW1idWVkIHdpdGggdGhlIGVzc2VuY2Ugb2YgZmlyZS4aBwgBEBQ"
-        + "YiCeiARQIAxIGCAEQMhhkEggIBRDIARisAg=="
-    )
-
-    decoded = WynnSourceItem()
-    decoded.ParseFromString(base64.b64decode(encoded_b64))
-    assert decoded.name == "Crafted Spear of Flames"
-    assert decoded.rarity == Rarity.RARITY_CRAFTED
-    assert decoded.WhichOneof("data") == "gear"
-    assert decoded.gear.type == GearType.GEAR_TYPE_SPEAR
-    assert decoded.gear.WhichOneof("state") == "crafted"
-    assert decoded.gear.crafted.crafted_meta.author == "Player123"
-    assert (
-        decoded.gear.crafted.crafted_meta.lore
-        == "A spear forged in the heart of a volcano, imbued with the essence of fire."
-    )

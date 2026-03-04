@@ -19,9 +19,7 @@ class BetaItem(Base):
 
 class BetaItemRepository(BaseRepository):
     async def add_item(self, item: WynnSourceItem):
-        existing = (
-            await self.session.execute(select(BetaItem).where(BetaItem.name == item.name))
-        ).scalar_one_or_none()
+        existing = (await self.session.execute(select(BetaItem).where(BetaItem.name == item.name))).scalar_one_or_none()
         if existing:
             existing.item = item.SerializeToString()
             self.session.add(existing)
@@ -33,6 +31,10 @@ class BetaItemRepository(BaseRepository):
     async def get_item(self, name: str) -> BetaItem | None:
         result = await self.session.execute(select(BetaItem).where(BetaItem.name == name))
         return result.scalar_one_or_none()
+
+    async def get_items_by_names(self, names: list[str]) -> Sequence[BetaItem]:
+        result = await self.session.execute(select(BetaItem).where(BetaItem.name.in_(names)))
+        return result.scalars().all()
 
     async def list_items(self) -> Sequence[BetaItem]:
         result = await self.session.execute(select(BetaItem))
