@@ -23,9 +23,6 @@ async def handle_item_submission(submission: NewItemSubmission, session: AsyncSe
             item = WynnSourceItem.FromString(b64decode(item))
             existing = await itemRepo.get_item(item.name)
             existing = WynnSourceItem.FromString(existing.item) if existing else None
-            if not check_item_validity(item):
-                LOGGER.debug(f"Item from submission is invalid: {item.name}")
-                continue
             if existing and item == existing:
                 LOGGER.debug(f"Item from submission is identical to existing item: {item.name}")
                 continue
@@ -43,37 +40,32 @@ async def handle_item_submission(submission: NewItemSubmission, session: AsyncSe
     LOGGER.info(f"Processed {succeeds}/{len(submission.items)} items from beta submission")
 
 
-def check_item_validity(item: WynnSourceItem) -> bool:
-    if item.name == "":
-        return False
-    if item.level == 0:
-        return False
-    if item.rarity == 0:
-        return False
-    if not item.HasField("gear"):
-        return False
-    if item.gear.type == 0:
-        return False
-    if not item.gear.HasField("requirements"):
-        return False
-    if not item.gear.HasField("unidentified"):
-        return False
-    if len(item.gear.unidentified.identifications) == 0:
-        return False
-
-    return True
-
-
 async def get_beta_items(session: AsyncSession) -> list[bytes]:
     itemRepo = BetaItemRepository(session)
     beta_items = await itemRepo.list_items()
-    return [item.item for item in beta_items]
+    deserialized_items = [WynnSourceItem.FromString(item.item) for item in beta_items]
+    return [WynnSourceItem.SerializeToString(item) for item in deserialized_items if item.HasField("gear")]
+
+
+async def get_beta_ingredients(session: AsyncSession) -> list[bytes]:
+    itemRepo = BetaItemRepository(session)
+    beta_items = await itemRepo.list_items()
+    deserialized_items = [WynnSourceItem.FromString(item.item) for item in beta_items]
+    return [WynnSourceItem.SerializeToString(item) for item in deserialized_items if item.HasField("ingredient")]
 
 
 async def get_beta_items_by_name(session: AsyncSession, name: list[str]) -> list[bytes]:
     itemRepo = BetaItemRepository(session)
     beta_items = await itemRepo.get_items_by_names(name)
-    return [item.item for item in beta_items]
+    deserialized_items = [WynnSourceItem.FromString(item.item) for item in beta_items]
+    return [WynnSourceItem.SerializeToString(item) for item in deserialized_items if item.HasField("gear")]
+
+
+async def get_beta_ingredients_by_name(session: AsyncSession, name: list[str]) -> list[bytes]:
+    itemRepo = BetaItemRepository(session)
+    beta_items = await itemRepo.get_items_by_names(name)
+    deserialized_items = [WynnSourceItem.FromString(item.item) for item in beta_items]
+    return [WynnSourceItem.SerializeToString(item) for item in deserialized_items if item.HasField("ingredient")]
 
 
 async def handle_patch_submission(submission: ItemPatchSubmission, session: AsyncSession) -> None:

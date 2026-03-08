@@ -9,6 +9,8 @@ from app.schemas.response import EmptyResponse, WCSResponse
 
 from .schema import BetaItemListResponse, ItemPatchSubmission, NewItemSubmission
 from .service import (
+    get_beta_ingredients,
+    get_beta_ingredients_by_name,
     get_beta_items,
     get_beta_items_by_name,
     handle_clear_beta_items,
@@ -47,6 +49,40 @@ async def list_beta_items_filtered(
     """
     return WCSResponse(
         data=BetaItemListResponse(items=item_return_type.format_items(await get_beta_items_by_name(session, names)))
+    )
+
+
+@BetaRouter.get("/ingredients", summary="List Beta Ingredients")
+@metadata.rate_limit(limit=10, period=60)
+@metadata.cached(expire=30)
+async def list_beta_ingredients(
+    session: SessionDep,
+    item_return_type: ItemReturnType = ItemReturnType.B64,
+) -> WCSResponse[BetaItemListResponse]:
+    """
+    List all ingredients in the beta list.
+    """
+    return WCSResponse(
+        data=BetaItemListResponse(items=item_return_type.format_items(await get_beta_ingredients(session)))
+    )
+
+
+@BetaRouter.post("/ingredients/filter", summary="List Beta Ingredients Filtered")
+@metadata.rate_limit(limit=10, period=60)
+@metadata.cached(expire=30)
+async def list_beta_ingredients_filtered(
+    session: SessionDep,
+    names: list[str] = Body(default_factory=list, description="Optional list of ingredient names to filter by"),
+    item_return_type: ItemReturnType = ItemReturnType.B64,
+) -> WCSResponse[BetaItemListResponse]:
+    """
+    List ingredients in the beta list.
+    If `names` query parameter is non-empty, only ingredients with matching names will be returned.
+    """
+    return WCSResponse(
+        data=BetaItemListResponse(
+            items=item_return_type.format_items(await get_beta_ingredients_by_name(session, names))
+        )
     )
 
 
