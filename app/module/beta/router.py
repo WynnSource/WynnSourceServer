@@ -9,6 +9,7 @@ from app.schemas.response import EmptyResponse, WCSResponse
 
 from .schema import BetaItemListResponse, ItemPatchSubmission, NewItemSubmission
 from .service import (
+    fix_items,
     get_beta_ingredients,
     get_beta_ingredients_by_name,
     get_beta_items,
@@ -124,3 +125,13 @@ async def clear_beta_items(session: SessionDep) -> EmptyResponse:
     """
     await handle_clear_beta_items(session)
     return EmptyResponse()
+
+
+@BetaRouter.get("debug/fix", summary="Fix item with weird names", include_in_schema=False)
+@metadata.permission("beta.items.debug")
+async def fix_weird_items(session: SessionDep):
+    """
+    Fix items with weird names that may have been caused by encoding issues.
+    """
+
+    return WCSResponse(data={"fixed": await fix_items(session)})

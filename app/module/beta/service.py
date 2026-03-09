@@ -21,6 +21,8 @@ async def handle_item_submission(submission: NewItemSubmission, session: AsyncSe
     for item in submission.items:
         try:
             item = WynnSourceItem.FromString(b64decode(item))
+            while item.name.endswith("À"):
+                item.name = item.name.removesuffix("À")
             existing = await itemRepo.get_item(item.name)
             existing = WynnSourceItem.FromString(existing.item) if existing else None
             if existing and item == existing:
@@ -123,3 +125,21 @@ async def handle_clear_beta_items(session: AsyncSession):
             # Silently ignore failed deletions
             pass
     LOGGER.info(f"Cleared {deleted_count} items from beta")
+
+
+async def fix_items(session: AsyncSession) -> int:
+    itemRepo = BetaItemRepository(session)
+    beta_items = await itemRepo.list_items()
+    fixed_count = 0
+    for item in beta_items:
+        try:
+            existing = WynnSourceItem.FromString(item.item)
+            while existing.name.endswith("À"):
+                existing.name = existing.name.removesuffix("À")
+
+            await itemRepo.add_item(existing)
+            fixed_count += 1
+        except Exception:
+            continue
+
+    return fixed_count
