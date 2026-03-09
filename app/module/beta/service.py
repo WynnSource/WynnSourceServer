@@ -134,11 +134,14 @@ async def fix_items(session: AsyncSession) -> int:
     for item in beta_items:
         try:
             existing = WynnSourceItem.FromString(item.item)
-            while existing.name.endswith("À"):
-                existing.name = existing.name.removesuffix("À")
+            previous_name = existing.name
+            if existing.name.endswith("À"):
+                while existing.name.endswith("À"):
+                    existing.name = existing.name.removesuffix("À")
 
-            await itemRepo.add_item(existing)
-            fixed_count += 1
+                await itemRepo.add_item(existing)
+                await itemRepo.delete_item(previous_name)
+                fixed_count += 1
         except Exception:
             continue
 

@@ -127,7 +127,7 @@ async def clear_beta_items(session: SessionDep) -> EmptyResponse:
     return EmptyResponse()
 
 
-@BetaRouter.get("debug/fix", summary="Fix item with weird names", include_in_schema=False)
+@BetaRouter.get("/debug/fix", summary="Fix item with weird names", include_in_schema=False)
 @metadata.permission("beta.items.debug")
 async def fix_weird_items(session: SessionDep):
     """
