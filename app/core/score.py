@@ -150,15 +150,14 @@ async def update_user_scores():
 
             tier = Tier.get_by_score(user.score)
             delta = tier.daily_base * (quality * QUALITY_WEIGHT + activity * ACTIVITY_WEIGHT)
-            delta = int(round(delta))
+            delta = round(delta)
             delta = max(-tier.daily_base, min(tier.daily_base, delta))
 
             new_score = max(SCORE_MIN, min(SCORE_MAX, user.score + delta))
             user.score = new_score
 
             LOGGER.debug(
-                f"User {user.id}: quality={quality:.3f}, activity={activity:.3f}, "
-                f"delta={delta}, new_score={new_score}"
+                f"User {user.id}: quality={quality:.3f}, activity={activity:.3f}, delta={delta}, new_score={new_score}"
             )
 
         LOGGER.info(f"Updated scores for {len(users)} users")
@@ -207,9 +206,7 @@ def calculate_activity_factor(user_id: int, pools: list["Pool"]) -> float:
     if total_pools == 0:
         return 0.0
 
-    user_pools = sum(
-        1 for pool in pools if any(sub.user_id == user_id for sub in pool.submissions)
-    )
+    user_pools = sum(1 for pool in pools if any(sub.user_id == user_id for sub in pool.submissions))
 
     ratio = user_pools / total_pools
     return min(1.0, ratio / ACTIVITY_THRESHOLD)
