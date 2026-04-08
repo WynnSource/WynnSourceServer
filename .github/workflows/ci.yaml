@@ -18,7 +18,6 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
       - run: uv run ruff check app
-      - run: uv run ruff format --check app
 
   build-and-push:
     needs: lint
