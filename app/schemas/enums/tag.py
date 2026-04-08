@@ -7,3 +7,4 @@ class ApiTag(StrEnum):
     MARKET = "market"
     BETA = "beta"
     MISC = "misc"
+    RAID = "raid"

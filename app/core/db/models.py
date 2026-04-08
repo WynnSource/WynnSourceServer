@@ -5,6 +5,7 @@ It should not be imported anywhere else.
 
 import app.core.security.model
 import app.module.beta.model
-import app.module.pool.model  # noqa: F401
+import app.module.pool.model
+import app.module.raid.model  # noqa: F401
 
 __all__ = []

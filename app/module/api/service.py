@@ -1,4 +1,5 @@
 import random
+from typing import ClassVar
 
 import httpx
 import jsonschema
@@ -23,15 +24,17 @@ class MappingStorage:
     Singleton storage class for ID to name mappings.
     """
 
+    _instance: ClassVar["MappingStorage | None"] = None
     mappings: dict[MappingType, dict]
 
     def __init__(self):
         self.mappings = {}
 
-    def get_instance(self) -> "MappingStorage":
-        if not hasattr(self, "_instance"):
-            self._instance = MappingStorage()
-        return self._instance
+    @classmethod
+    def get_instance(cls) -> "MappingStorage":
+        if cls._instance is None:
+            cls._instance = MappingStorage()
+        return cls._instance
 
     async def get_mapping(self, mapping_type: MappingType) -> dict:
         if mapping_type in self.mappings:
@@ -46,8 +49,7 @@ class MappingStorage:
             response = await client.get(url)
             if response.status_code != 200:
                 LOGGER.error(
-                    f"Failed to fetch mapping for {mapping_type.value} "
-                    + "from {url}: {response.status_code}"
+                    f"Failed to fetch mapping for {mapping_type.value} " + "from {url}: {response.status_code}"
                 )
                 return
             schema_response = await client.get(schema_url)
@@ -64,14 +66,10 @@ class MappingStorage:
             try:
                 jsonschema.validate(instance=mapping, schema=schema)
             except jsonschema.ValidationError as e:
-                LOGGER.error(
-                    f"Mapping data for {mapping_type.value} failed schema validation: {e.message}"
-                )
+                LOGGER.error(f"Mapping data for {mapping_type.value} failed schema validation: {e.message}")
                 return
 
-            del mapping[
-                SCHEMA_FIELD
-            ]  # we don't need the schema reference as it's relative path in the repo
+            del mapping[SCHEMA_FIELD]  # we don't need the schema reference as it's relative path in the repo
             self.mappings[mapping_type] = mapping
 
 
@@ -85,7 +83,7 @@ async def update_mapping():
     """
     Scheduled job to update ID to name mappings every hour.
     """
-    storage = MappingStorage().get_instance()
+    storage = MappingStorage.get_instance()
     for mapping_type in MappingType:
         await storage.update_mapping(mapping_type)
 
@@ -95,6 +93,4 @@ def generate_random_item() -> bytes:
     Generate a random item for testing purposes.
     """
     id = random.randint(1, 10000)
-    return WynnSourceItem(
-        name=f"Test Item {id}", level=id % 100, rarity=RARITY_CRAFTED
-    ).SerializeToString()
+    return WynnSourceItem(name=f"Test Item {id}", level=id % 100, rarity=RARITY_CRAFTED).SerializeToString()

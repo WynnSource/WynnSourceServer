@@ -20,7 +20,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: server
-          image: ghcr.io/wynnsource/wynnsource-server:latest
+          image: ghcr.io/wynnsource/wynnsource-server:placeholder
           ports:
             - containerPort: 8000
               name: http

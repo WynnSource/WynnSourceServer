@@ -6,19 +6,19 @@ from app.module.beta.router import BetaRouter
 from app.module.manage.router import ManageRouter
 from app.module.market.router import MarketRouter
 from app.module.pool.router import PoolRouter
+from app.module.raid.router import RaidRouter
 from app.schemas.enums import ApiTag, ItemReturnType
 from app.schemas.response import StatusResponse, WCSResponse
 
 from .schema import MappingResponse, MappingType, RandomItemResponse, ValidationErrorResponse
 from .service import MappingStorage, generate_random_item
 
-Router = APIRouter(
-    route_class=DocedAPIRoute, prefix="/api/v2", responses={422: {"model": ValidationErrorResponse}}
-)
+Router = APIRouter(route_class=DocedAPIRoute, prefix="/api/v2", responses={422: {"model": ValidationErrorResponse}})
 Router.include_router(ManageRouter)
 Router.include_router(PoolRouter)
 Router.include_router(MarketRouter)
 Router.include_router(BetaRouter)
+Router.include_router(RaidRouter)
 
 
 @Router.get("/test", summary="Test endpoint", tags=[ApiTag.MISC])
@@ -40,7 +40,7 @@ async def get_mappings(mapping_type: MappingType) -> MappingResponse:
     Get ID mappings for a given type.
     """
 
-    storage = MappingStorage().get_instance()
+    storage = MappingStorage.get_instance()
     return MappingResponse.model_validate(await storage.get_mapping(mapping_type), extra="ignore")
 
 
@@ -52,6 +52,4 @@ async def get_random_item(
     """
     Get a random item for testing purposes.
     """
-    return WCSResponse(
-        data=RandomItemResponse(item=item_return_type.format_item(generate_random_item()))
-    )
+    return WCSResponse(data=RandomItemResponse(item=item_return_type.format_item(generate_random_item())))

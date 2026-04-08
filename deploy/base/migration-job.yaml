@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: migration
-          image: ghcr.io/wynnsource/wynnsource-server:latest
+          image: ghcr.io/wynnsource/wynnsource-server:placeholder
           command: ["uv", "run", "--no-dev", "alembic", "upgrade", "head"]
           envFrom:
             - secretRef:

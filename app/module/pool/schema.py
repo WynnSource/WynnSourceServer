@@ -16,6 +16,8 @@ class LootPoolRegion(enum.StrEnum):
     SE = "SE"
     COTL = "Canyon"
     CORKUS = "Corkus"
+    FrumaWest = "FrumaWest"
+    FrumaEast = "FrumaEast"
 
 
 class Rarity(enum.StrEnum):
@@ -32,6 +34,7 @@ class RaidRegion(enum.StrEnum):
     TCC = "TCC"
     NOL = "NOL"
     NOTG = "NOTG"
+    TWP = "TWP"
 
 
 VALID_REGIONS: dict[PoolType, type[enum.StrEnum]] = {
@@ -43,9 +46,7 @@ VALID_REGIONS: dict[PoolType, type[enum.StrEnum]] = {
 
 class PoolSubmissionSchema(BaseModel):
     pool_type: PoolType
-    region: str = Field(
-        description="Region name, must be one of the valid regions for the pool type"
-    )
+    region: str = Field(description="Region name, must be one of the valid regions for the pool type")
     page: int
     client_timestamp: datetime
     mod_version: str
@@ -57,9 +58,7 @@ class PoolSubmissionSchema(BaseModel):
 
 class PoolConsensusResponse(BaseModel):
     pool_type: PoolType
-    region: str = Field(
-        description="Region name, must be one of the valid regions for the pool type"
-    )
+    region: str = Field(description="Region name, must be one of the valid regions for the pool type")
     rotation_start: datetime
     rotation_end: datetime
     page_consensus: list["PageConsensus"]
@@ -67,8 +66,7 @@ class PoolConsensusResponse(BaseModel):
     class PageConsensus(BaseModel):
         page: int = Field(description="The page number")
         items: list[str] | list[dict] = Field(
-            description="Consensus item data for the page, "
-            + "format depends on item_return_type query parameter",
+            description="Consensus item data for the page, " + "format depends on item_return_type query parameter",
             examples=[["aXRlbV9kYXRhXzE=", "aXRlbV9kYXRhXzI="]],
         )
         confidence: float = Field(description="Confidence level, between 0 and 1")

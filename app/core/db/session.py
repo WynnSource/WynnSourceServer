@@ -12,7 +12,7 @@ engine: AsyncEngine | None = None
 session_maker: async_sessionmaker[AsyncSession]
 
 
-async def get_dsn() -> str:
+def get_dsn() -> str:
     """
     Returns the database connection string based on the configuration.
     """
@@ -24,7 +24,7 @@ async def get_dsn() -> str:
 
 async def init_db() -> AsyncEngine:
     global engine, session_maker
-    dsn = await get_dsn()
+    dsn = get_dsn()
     engine = create_async_engine(dsn, echo=False)
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
     LOGGER.debug(f"Database engine initialized with DSN: {dsn}")

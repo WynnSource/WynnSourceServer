@@ -1,9 +1,22 @@
+import datetime
+from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from apscheduler.triggers.cron import CronTrigger
 
 from app.core.scheduler import SCHEDULER
+
+if TYPE_CHECKING:
+    from app.module.pool.model import Pool
+
+# Scoring configuration
+QUALITY_WEIGHT = 0.7
+ACTIVITY_WEIGHT = 0.3
+ACTIVITY_THRESHOLD = 0.5
+SCORE_MIN = -10000
+SCORE_MAX = 10000
 
 
 @dataclass
@@ -91,10 +104,112 @@ class Tier(Enum):
     coalesce=True,
 )
 async def update_user_scores():
-    pass
+    # Lazy imports to avoid circular dependency (pool/config.py imports Tier)
+    from app.core.db import get_session
+    from app.core.log import LOGGER
+    from app.core.security.model import UserRepository
+    from app.module.pool.config import POOL_REFRESH_CONFIG
+    from app.module.pool.model import PoolRepository
+    from app.module.pool.schema import PoolType
+
+    async with get_session() as session:
+        # 1. Fetch all current rotation pools across all pool types
+        all_current_pools: list[Pool] = []
+        now = datetime.datetime.now(tz=datetime.UTC)
+        for pool_type in PoolType:
+            rotation = POOL_REFRESH_CONFIG[pool_type].get_rotation(now)
+            pool_repo = PoolRepository(session)
+            pools = await pool_repo.list_pools(
+                pool_type=pool_type,
+                rotation_start=rotation.start,
+            )
+            all_current_pools.extend(pools)
+
+        if not all_current_pools:
+            LOGGER.info("No active pools for current rotation, skipping score update")
+            return
+
+        # 2. Collect all unique user_ids who submitted to any current pool
+        user_ids: set[int] = set()
+        for pool in all_current_pools:
+            for sub in pool.submissions:
+                user_ids.add(sub.user_id)
+
+        if not user_ids:
+            LOGGER.info("No submissions found for current rotation, skipping score update")
+            return
+
+        # 3. Load users
+        user_repo = UserRepository(session)
+        users = await user_repo.get_users_by_ids(list(user_ids))
+
+        # 4. Calculate and apply score deltas
+        for user in users:
+            quality = calculate_quality_factor(user.id, all_current_pools)
+            activity = calculate_activity_factor(user.id, all_current_pools)
+
+            tier = Tier.get_by_score(user.score)
+            delta = tier.daily_base * (quality * QUALITY_WEIGHT + activity * ACTIVITY_WEIGHT)
+            delta = int(round(delta))
+            delta = max(-tier.daily_base, min(tier.daily_base, delta))
+
+            new_score = max(SCORE_MIN, min(SCORE_MAX, user.score + delta))
+            user.score = new_score
+
+            LOGGER.debug(
+                f"User {user.id}: quality={quality:.3f}, activity={activity:.3f}, "
+                f"delta={delta}, new_score={new_score}"
+            )
+
+        LOGGER.info(f"Updated scores for {len(users)} users")
 
 
-async def calculate_quality_factor(): ...
+def calculate_quality_factor(user_id: int, pools: list["Pool"]) -> float:
+    """Compare user submissions against consensus. Returns [-1.0, 1.0]."""
+    pool_qualities: list[float] = []
+
+    for pool in pools:
+        if not pool.consensus_data or pool.confidence <= 0:
+            continue
+
+        user_sub = None
+        for sub in pool.submissions:
+            if sub.user_id == user_id:
+                user_sub = sub
+                break
+
+        if user_sub is None:
+            continue
+
+        user_items = Counter(user_sub.item_data)
+        consensus_items = Counter(pool.consensus_data)
+
+        all_keys = set(user_items.keys()) | set(consensus_items.keys())
+        if not all_keys:
+            continue
+
+        intersection = sum(min(user_items[k], consensus_items[k]) for k in all_keys)
+        union = sum(max(user_items[k], consensus_items[k]) for k in all_keys)
+
+        similarity = intersection / union if union > 0 else 0.0
+        pool_quality = (2.0 * similarity - 1.0) * pool.confidence
+        pool_qualities.append(pool_quality)
+
+    if not pool_qualities:
+        return 0.0
+
+    return sum(pool_qualities) / len(pool_qualities)
 
 
-async def calculate_activity_factor(): ...
+def calculate_activity_factor(user_id: int, pools: list["Pool"]) -> float:
+    """Measure participation breadth. Returns [0.0, 1.0]."""
+    total_pools = len(pools)
+    if total_pools == 0:
+        return 0.0
+
+    user_pools = sum(
+        1 for pool in pools if any(sub.user_id == user_id for sub in pool.submissions)
+    )
+
+    ratio = user_pools / total_pools
+    return min(1.0, ratio / ACTIVITY_THRESHOLD)

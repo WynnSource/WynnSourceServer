@@ -1,0 +1,33 @@
+name: GHCR Cleanup
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # Every Sunday at 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Clean up dev images
+        uses: snok/container-retention-policy@v3
+        with:
+          account: ${{ github.repository_owner }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: wynnsource-server
+          cut-off: 7 days ago UTC
+          keep-n-most-recent: 5
+          filter-tags: "dev-*"
+          skip-tags: "dev-latest"
+          image-tags: "!latest"
+
+      - name: Clean up untagged manifests
+        uses: snok/container-retention-policy@v3
+        with:
+          account: ${{ github.repository_owner }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: wynnsource-server
+          cut-off: 1 day ago UTC
+          untagged-only: true

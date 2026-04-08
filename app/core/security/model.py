@@ -61,6 +61,13 @@ class UserRepository(BaseRepository):
         await self.session.execute(delete(User).where(User.token.in_(token_strs)))
         await self.session.flush()
 
+    async def get_users_by_ids(self, user_ids: list[int]) -> list[User]:
+        if not user_ids:
+            return []
+        query = select(User).where(User.id.in_(user_ids))
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
     async def update_user_ip(self, user: User, ip: str) -> None:
         if ip not in user.common_ips:
             if len(user.common_ips) >= USER_CONFIG.max_ip_records:
