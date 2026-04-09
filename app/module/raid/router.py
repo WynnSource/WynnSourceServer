@@ -8,7 +8,6 @@ from app.core.db import SessionDep, get_session
 from app.core.rate_limiter import ip_based_key_func, user_based_key_func
 from app.core.router import DocedAPIRoute
 from app.core.security.auth import UserDep
-from app.module.pool.schema import RaidRegion
 from app.schemas.enums import ApiTag
 from app.schemas.response import EMPTY_RESPONSE, EmptyResponse, WCSResponse
 
@@ -47,11 +46,10 @@ async def submit_gambit_data(data: list[GambitSubmissionSchema], user: UserDep) 
     return EMPTY_RESPONSE
 
 
-@RaidRouter.get("/gambit/{region}", summary="Get Current Gambit Consensus")
+@RaidRouter.get("/gambit", summary="Get Current Gambit Consensus")
 @metadata.rate_limit(limit=10, period=60, key_func=ip_based_key_func)
 @metadata.cached(expire=120)
 async def get_gambit_by_region(
-    region: RaidRegion,
     session: SessionDep,
 ) -> WCSResponse[GambitConsensusResponse]:
     """
@@ -59,11 +57,10 @@ async def get_gambit_by_region(
     """
     try:
         rotation = get_gambit_rotation(datetime.datetime.now(tz=datetime.UTC))
-        result = await get_gambit_consensus(session, region, rotation.start)
+        result = await get_gambit_consensus(session, rotation.start)
 
         if result is None:
             data = GambitConsensusResponse(
-                region=region,
                 rotation_start=rotation.start,
                 rotation_end=rotation.end,
                 gambits=[],
@@ -72,7 +69,6 @@ async def get_gambit_by_region(
         else:
             pairs, confidence = result
             data = GambitConsensusResponse(
-                region=region,
                 rotation_start=rotation.start,
                 rotation_end=rotation.end,
                 gambits=[

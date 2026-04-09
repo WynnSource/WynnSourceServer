@@ -7,10 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_session
 from app.core.scheduler import SCHEDULER
 from app.core.security.model import User
-from app.module.pool.schema import RaidRegion
 from app.module.pool.service import calculate_submission_weight
 
-from .config import FUZZY_WINDOW, GAMBIT_COUNT, GAMBIT_SEPARATOR, get_gambit_rotation
+from .config import FUZZY_WINDOW, GAMBIT_COUNT, GAMBIT_REGION, GAMBIT_SEPARATOR, get_gambit_rotation
 from .model import GambitRepository, GambitSubmission, GambitSubmissionRepository
 from .schema import GambitSubmissionSchema
 
@@ -26,7 +25,7 @@ async def submit_gambit_data(session: AsyncSession, data: GambitSubmissionSchema
 
     rotation = get_gambit_rotation(data.client_timestamp)
     gambit = await gambit_repo.get_or_create_gambit(
-        region=data.region.value,
+        region=GAMBIT_REGION,
         rotation=rotation,
     )
 
@@ -104,21 +103,17 @@ async def compute_gambit_consensus():
                 slot_confidences.append(best_weight / total_slot_weight if total_slot_weight > 0 else 0.0)
 
             gambit.consensus_data = consensus_data
-            gambit.confidence = round(
-                sum(slot_confidences) / len(slot_confidences) if slot_confidences else 0.0, 4
-            )
+            gambit.confidence = round(sum(slot_confidences) / len(slot_confidences) if slot_confidences else 0.0, 4)
             gambit.needs_recalc = False
 
 
 async def get_gambit_consensus(
     session: AsyncSession,
-    region: RaidRegion,
     rotation_start: datetime.datetime,
 ) -> tuple[list[tuple[str, str]], float] | None:
     """Returns ([(name, description), ...], confidence) or None if no data."""
     gambit_repo = GambitRepository(session)
     gambits = await gambit_repo.list_gambits(
-        region=region.value,
         rotation_start=rotation_start,
     )
 

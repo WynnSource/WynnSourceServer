@@ -1,4 +1,5 @@
 import enum
+import os
 import tomllib
 
 
@@ -19,7 +20,9 @@ with open("pyproject.toml", "rb") as f:
     pyproject = tomllib.load(f)
 
 __NAME__ = "WynnSource Server"
-__VERSION__: str = pyproject["project"]["version"]
+_base_version: str = pyproject["project"]["version"]
+_version_suffix = os.environ.get("WCS_VERSION_SUFFIX", "")
+__VERSION__: str = f"{_base_version}{_version_suffix}" if _version_suffix else _base_version
 __DESCRIPTION__: str = pyproject["project"]["description"]
 __REVISION__ = 2
 

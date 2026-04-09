@@ -2,8 +2,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.module.pool.schema import RaidRegion
-
 from .config import GAMBIT_COUNT
 
 
@@ -13,7 +11,6 @@ class GambitEntry(BaseModel):
 
 
 class GambitSubmissionSchema(BaseModel):
-    region: RaidRegion
     client_timestamp: datetime
     mod_version: str
     gambits: list[GambitEntry] = Field(
@@ -37,7 +34,6 @@ class GambitConsensusEntry(BaseModel):
 
 
 class GambitConsensusResponse(BaseModel):
-    region: str
     rotation_start: datetime
     rotation_end: datetime
     gambits: list[GambitConsensusEntry]
