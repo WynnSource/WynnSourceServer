@@ -64,6 +64,7 @@ async def compute_gambit_consensus():
         gambit_repo = GambitRepository(session)
         rotation = get_gambit_rotation(datetime.datetime.now(tz=datetime.UTC))
         active_gambits = await gambit_repo.list_gambits(
+            region=GAMBIT_REGION,
             rotation_start=rotation.start,
             needs_recalc=True,
         )
@@ -114,6 +115,7 @@ async def get_gambit_consensus(
     """Returns ([(name, description), ...], confidence) or None if no data."""
     gambit_repo = GambitRepository(session)
     gambits = await gambit_repo.list_gambits(
+        region=GAMBIT_REGION,
         rotation_start=rotation_start,
     )
 
