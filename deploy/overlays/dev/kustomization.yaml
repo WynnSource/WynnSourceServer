@@ -6,6 +6,10 @@ resources:
 images:
   - name: ghcr.io/wynnsource/wynnsource-server
     newTag: dev-latest
+labels:
+  - pairs:
+      app.kubernetes.io/instance: wynnsource-dev
+    includeSelectors: false
 patches:
   - target:
       kind: Deployment
