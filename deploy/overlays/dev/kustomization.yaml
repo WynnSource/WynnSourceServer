@@ -16,7 +16,7 @@ patches:
       name: wynnsource-server
     patch: |
       - op: add
-        path: /spec/template/spec/containers/0/env
+        path: /spec/template/spec/containers/0/env/-
         value:
-          - name: WCS_VERSION_SUFFIX
-            value: "-beta"
+          name: WCS_VERSION_SUFFIX
+          value: "-beta"
