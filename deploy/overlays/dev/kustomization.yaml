@@ -6,3 +6,13 @@ resources:
 images:
   - name: ghcr.io/wynnsource/wynnsource-server
     newTag: dev-latest
+patches:
+  - target:
+      kind: Deployment
+      name: wynnsource-server
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: WCS_VERSION_SUFFIX
+            value: "-beta"
