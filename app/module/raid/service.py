@@ -59,7 +59,7 @@ async def submit_gambit_data(session: AsyncSession, data: GambitSubmissionSchema
     misfire_grace_time=60,
     coalesce=True,
 )
-async def compute_gambit_consensus():
+async def compute_gambit_consensus() -> int:
     async with get_session() as session:
         gambit_repo = GambitRepository(session)
         rotation = get_gambit_rotation(datetime.datetime.now(tz=datetime.UTC))
@@ -106,6 +106,8 @@ async def compute_gambit_consensus():
             gambit.consensus_data = consensus_data
             gambit.confidence = round(sum(slot_confidences) / len(slot_confidences) if slot_confidences else 0.0, 4)
             gambit.needs_recalc = False
+
+        return len(active_gambits)
 
 
 async def get_gambit_consensus(

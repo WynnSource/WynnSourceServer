@@ -101,11 +101,10 @@ async def get_pools_by_type_and_region(
 
 @PoolRouter.get("/pools/recalc", summary="Force Recalculate Pool Consensus")
 @metadata.permission("pool.recalc")
-async def recalculate_pools() -> EmptyResponse:
+async def recalculate_pools() -> WCSResponse[dict]:
     """
     Force recalculate pool consensus.
     This is useful for admins to fix any issues with the consensus calculation.
     """
-
-    await compute_pool_consensus()
-    return EMPTY_RESPONSE
+    recalculated = await compute_pool_consensus()
+    return WCSResponse.from_message(f"Recalculated {recalculated} pool(s)")

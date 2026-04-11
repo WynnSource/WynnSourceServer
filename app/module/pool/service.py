@@ -105,12 +105,14 @@ def calculate_submission_weight(user: User, fuzzy: bool = False) -> float:
     misfire_grace_time=60,
     coalesce=True,  # Coalesce multiple missed executions into one
 )
-async def compute_pool_consensus():
+async def compute_pool_consensus() -> int:
+    total = 0
     for pool_type in PoolType:
-        await compute_pool_consensus_for_pool(pool_type)
+        total += await compute_pool_consensus_for_pool(pool_type)
+    return total
 
 
-async def compute_pool_consensus_for_pool(pool_type: PoolType):
+async def compute_pool_consensus_for_pool(pool_type: PoolType) -> int:
     async with get_session() as session:
         # Step 1: Fetch all active pools that need consensus computation
         poolRepo = PoolRepository(session)
@@ -170,6 +172,8 @@ async def compute_pool_consensus_for_pool(pool_type: PoolType):
             )
             pool.confidence = round(confidence, 4)
             pool.needs_recalc = False
+
+        return len(active_pools)
 
 
 type ConsensusByPage = dict[int, tuple[list[bytes], float]]
