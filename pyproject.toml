@@ -1,6 +1,6 @@
 [project]
 name = "wynnsource_server"
-version = "0.1.2"
+version = "0.1.4"
 description = "The server component of WynnSource - a Wynncraft Crowdsourcing Mod."
 readme = "README.md"
 requires-python = ">=3.12, <4.0"
