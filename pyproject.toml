@@ -1,6 +1,6 @@
 [project]
 name = "wynnsource_server"
-version = "0.1.4"
+version = "0.1.5"
 description = "The server component of WynnSource - a Wynncraft Crowdsourcing Mod."
 readme = "README.md"
 requires-python = ">=3.12, <4.0"
@@ -25,6 +25,7 @@ dependencies = [
     "pydantic-settings>=2.10.1",
     "redis>=7.1.1",
     "scalar-fastapi>=1.6.2",
+    "sentry-sdk>=2.53.0",
     "sqlalchemy>=2.0.40",
     "wynnsource-proto",
 ]
