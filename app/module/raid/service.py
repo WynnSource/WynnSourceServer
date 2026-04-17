@@ -54,7 +54,7 @@ async def submit_gambit_data(session: AsyncSession, data: GambitSubmissionSchema
 
 
 @SCHEDULER.scheduled_job(
-    IntervalTrigger(minutes=20),
+    IntervalTrigger(minutes=5),
     id="compute_gambit_consensus",
     misfire_grace_time=60,
     coalesce=True,

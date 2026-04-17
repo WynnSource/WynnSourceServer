@@ -2,6 +2,7 @@ import base64
 import datetime
 from collections import defaultdict
 
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,15 +113,63 @@ async def compute_pool_consensus() -> int:
     return total
 
 
+BOOST_INTERVAL = datetime.timedelta(minutes=2)
+BOOST_LEAD = datetime.timedelta(minutes=30)  # reset 前多久开始
+BOOST_TAIL = datetime.timedelta(minutes=30)  # reset 后多久结束
+
+
+def _boost_job_id(pool_type: PoolType) -> str:
+    return f"compute_pool_consensus_boost:{pool_type.value}"
+
+
+@SCHEDULER.scheduled_job(
+    CronTrigger(hour=0, minute=5),
+    id="schedule_pool_boosts",
+    misfire_grace_time=600,
+    coalesce=True,
+)
+async def schedule_pool_boosts() -> None:
+    for pool_type in PoolType:
+        await _schedule_boost_for_pool(pool_type)
+
+
+async def _schedule_boost_for_pool(pool_type: PoolType) -> None:
+    config = POOL_REFRESH_CONFIG[pool_type]
+    now = datetime.datetime.now(datetime.UTC)
+    rotation = config.get_rotation(now)
+
+    prev_tail_end = rotation.start + BOOST_TAIL
+    if now < prev_tail_end:
+        reset_at = rotation.start
+    else:
+        reset_at = rotation.end
+
+    boost_start = reset_at - BOOST_LEAD
+    boost_end = reset_at + BOOST_TAIL
+
+    SCHEDULER.add_job(
+        compute_pool_consensus_for_pool,
+        args=[pool_type],
+        trigger=IntervalTrigger(
+            minutes=int(BOOST_INTERVAL.total_seconds() // 60),
+            start_date=max(boost_start, now),
+            end_date=boost_end,
+        ),
+        id=_boost_job_id(pool_type),
+        replace_existing=True,
+        coalesce=True,
+        misfire_grace_time=60,
+        max_instances=1,
+    )
+
+
 async def compute_pool_consensus_for_pool(pool_type: PoolType) -> int:
     async with get_session() as session:
         # Step 1: Fetch all active pools that need consensus computation
         poolRepo = PoolRepository(session)
         active_pools = await poolRepo.list_pools(
             pool_type=pool_type,
-            rotation_start=POOL_REFRESH_CONFIG[pool_type]
-            .get_rotation(datetime.datetime.now(tz=datetime.UTC))
-            .start,
+            rotation_start=POOL_REFRESH_CONFIG[pool_type].get_rotation(datetime.datetime.now(tz=datetime.UTC)).start,
             needs_recalc=True,
         )
         # The active pools should only differ in (region, page)
@@ -166,9 +215,7 @@ async def compute_pool_consensus_for_pool(pool_type: PoolType) -> int:
 
             pool.consensus_data = consensus_items
             confidence = (
-                sum(consensus_weights) / (highest_weight * len(consensus_weights))
-                if consensus_weights
-                else 0.0
+                sum(consensus_weights) / (highest_weight * len(consensus_weights)) if consensus_weights else 0.0
             )
             pool.confidence = round(confidence, 4)
             pool.needs_recalc = False
@@ -191,9 +238,7 @@ async def get_pool_consensus(
 
     poolRepo = PoolRepository(session)
 
-    pool = await poolRepo.list_pools(
-        pool_type=pool_type, region=region, rotation_start=rotation_start, order_by="page"
-    )
+    pool = await poolRepo.list_pools(pool_type=pool_type, region=region, rotation_start=rotation_start, order_by="page")
     if not pool:
         return {}
 
