@@ -3,6 +3,7 @@ import logging
 import sentry_sdk as sentry
 from fastapi import HTTPException
 from sentry_sdk.integrations.asyncio import AsyncioIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.loguru import LoguruIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
@@ -43,6 +44,8 @@ def init_sentry() -> bool:
             SqlalchemyIntegration(),
             RedisIntegration(),
         ],
+        disabled_integrations=[LoggingIntegration()],
+        enable_logs=True,
     )
     return True
 
