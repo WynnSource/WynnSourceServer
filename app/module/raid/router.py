@@ -21,12 +21,12 @@ RaidRouter = APIRouter(route_class=DocedAPIRoute, prefix="/raid", tags=[ApiTag.R
 
 @RaidRouter.get("/gambit/recalc", summary="Force Recalculate Gambit Consensus")
 @metadata.permission("raid.recalc")
-async def recalculate_gambits() -> EmptyResponse:
+async def recalculate_gambits() -> WCSResponse[dict]:
     """
     Force recalculate gambit consensus.
     """
-    await compute_gambit_consensus()
-    return EMPTY_RESPONSE
+    recalculated = await compute_gambit_consensus()
+    return WCSResponse.from_message(f"Recalculated {recalculated} gambit(s)")
 
 
 @RaidRouter.post("/gambit/submit", summary="Submit Gambit Data")

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from app.core.score import Tier
@@ -18,14 +18,16 @@ class PoolRotation:
 @dataclass
 class PoolConfig:
     weekday: int
-    winter_hour: int
-    summer_hour: int
+    winter_utc_hour: int
+    summer_utc_hour: int
+
+    def _is_dst(self, d: date) -> bool:
+        noon = datetime.combine(d, datetime.min.time().replace(hour=12), tzinfo=SERVER_TZ)
+        return bool(noon.dst())
 
     def _get_exact_reset_time(self, d: date) -> datetime:
-        noon = datetime.combine(d, datetime.min.time().replace(hour=12), tzinfo=SERVER_TZ)
-        is_dst = bool(noon.dst())
-        hour = self.summer_hour if is_dst else self.winter_hour
-        return datetime.combine(d, datetime.min.time().replace(hour=hour), tzinfo=SERVER_TZ)
+        hour = self.summer_utc_hour if self._is_dst(d) else self.winter_utc_hour
+        return datetime(d.year, d.month, d.day, hour, tzinfo=UTC)
 
     def get_rotation(self, time: datetime, shift: int = 0) -> PoolRotation:
         if time.tzinfo is None:
@@ -38,7 +40,7 @@ class PoolConfig:
 
         current_reset = self._get_exact_reset_time(candidate_date)
 
-        if local_time < current_reset:
+        if time < current_reset:
             candidate_date -= timedelta(days=7)
             current_reset = self._get_exact_reset_time(candidate_date)
 
@@ -52,13 +54,9 @@ class PoolConfig:
 
 
 POOL_REFRESH_CONFIG = {
-    PoolType.LR_ITEM: PoolConfig(weekday=4, winter_hour=15, summer_hour=14),
-    PoolType.RAID_ASPECT: PoolConfig(weekday=4, winter_hour=14, summer_hour=13),
-    PoolType.RAID_ITEM: PoolConfig(
-        weekday=4,
-        winter_hour=15,
-        summer_hour=14,
-    ),
+    PoolType.LR_ITEM: PoolConfig(weekday=4, winter_utc_hour=19, summer_utc_hour=18),
+    PoolType.RAID_ASPECT: PoolConfig(weekday=4, winter_utc_hour=18, summer_utc_hour=17),
+    PoolType.RAID_ITEM: PoolConfig(weekday=4, winter_utc_hour=18, summer_utc_hour=17),
 }
 
 FUZZY_WINDOW = timedelta(minutes=90)

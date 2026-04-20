@@ -12,22 +12,21 @@ jobs:
       packages: write
     steps:
       - name: Clean up dev images
-        uses: snok/container-retention-policy@v3
+        uses: snok/container-retention-policy@v3.0.1
         with:
           account: ${{ github.repository_owner }}
           token: ${{ secrets.GITHUB_TOKEN }}
           image-names: wynnsource-server
-          cut-off: 7 days ago UTC
+          cut-off: 1w
           keep-n-most-recent: 5
-          filter-tags: "dev-*"
-          skip-tags: "dev-latest"
-          image-tags: "!latest"
+          tag-selection: tagged
+          image-tags: "dev-* !dev-latest !latest"
 
       - name: Clean up untagged manifests
-        uses: snok/container-retention-policy@v3
+        uses: snok/container-retention-policy@v3.0.1
         with:
           account: ${{ github.repository_owner }}
           token: ${{ secrets.GITHUB_TOKEN }}
           image-names: wynnsource-server
-          cut-off: 1 day ago UTC
-          untagged-only: true
+          cut-off: 1d
+          tag-selection: untagged

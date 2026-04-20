@@ -54,16 +54,17 @@ async def submit_gambit_data(session: AsyncSession, data: GambitSubmissionSchema
 
 
 @SCHEDULER.scheduled_job(
-    IntervalTrigger(minutes=20),
+    IntervalTrigger(minutes=5),
     id="compute_gambit_consensus",
     misfire_grace_time=60,
     coalesce=True,
 )
-async def compute_gambit_consensus():
+async def compute_gambit_consensus() -> int:
     async with get_session() as session:
         gambit_repo = GambitRepository(session)
         rotation = get_gambit_rotation(datetime.datetime.now(tz=datetime.UTC))
         active_gambits = await gambit_repo.list_gambits(
+            region=GAMBIT_REGION,
             rotation_start=rotation.start,
             needs_recalc=True,
         )
@@ -106,6 +107,8 @@ async def compute_gambit_consensus():
             gambit.confidence = round(sum(slot_confidences) / len(slot_confidences) if slot_confidences else 0.0, 4)
             gambit.needs_recalc = False
 
+        return len(active_gambits)
+
 
 async def get_gambit_consensus(
     session: AsyncSession,
@@ -114,6 +117,7 @@ async def get_gambit_consensus(
     """Returns ([(name, description), ...], confidence) or None if no data."""
     gambit_repo = GambitRepository(session)
     gambits = await gambit_repo.list_gambits(
+        region=GAMBIT_REGION,
         rotation_start=rotation_start,
     )
 

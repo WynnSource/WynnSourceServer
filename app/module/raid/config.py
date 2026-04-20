@@ -1,12 +1,10 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-
-SERVER_TZ = ZoneInfo("America/New_York")
+from datetime import UTC, datetime, timedelta
 
 GAMBIT_COUNT = 4
 GAMBIT_SEPARATOR = "|"
 GAMBIT_REGION = "global"
+GAMBIT_RESET_UTC_HOUR = 17
 FUZZY_WINDOW = timedelta(minutes=30)
 CONSENSUS_THRESHOLD = 0.6
 
@@ -20,18 +18,16 @@ class GambitRotation:
 def get_gambit_rotation(time: datetime, shift: int = 0) -> GambitRotation:
     """Get the daily gambit rotation window for the given timestamp.
 
-    Gambits rotate daily at EST/EDT noon (12:00 America/New_York).
+    Gambits rotate daily at 17:00 UTC (12:00 EST / 13:00 EDT).
     """
     if time.tzinfo is None:
         raise ValueError("The 'time' parameter must be timezone-aware.")
 
-    local_time = time.astimezone(SERVER_TZ)
+    utc_time = time.astimezone(UTC)
 
-    # Today's reset at noon EST
-    today_reset = datetime.combine(local_time.date(), datetime.min.time(), tzinfo=SERVER_TZ)
-    today_reset += timedelta(hours=12)
+    today_reset = datetime(utc_time.year, utc_time.month, utc_time.day, GAMBIT_RESET_UTC_HOUR, tzinfo=UTC)
 
-    if local_time < today_reset:
+    if utc_time < today_reset:
         today_reset -= timedelta(days=1)
 
     if shift != 0:

@@ -9,6 +9,7 @@ from app.config import DB_CONFIG
 from app.core.db import RedisClient, close_db, init_db
 from app.core.openapi import custom_openapi
 from app.core.scheduler import SCHEDULER
+from app.core.sentry import init_sentry
 from app.module.api.exception_handler import (
     generic_exception_handler,
     http_exception_handler,
@@ -17,6 +18,8 @@ from app.module.api.exception_handler import (
 from app.module.api.router import Router
 from app.schemas.constants import __DESCRIPTION__, __NAME__, __VERSION__
 from app.schemas.response import STATUS_RESPONSE, StatusResponse
+
+init_sentry()
 
 
 @asynccontextmanager

@@ -59,6 +59,12 @@ spec:
               value: wynnsource-redis
             - name: REDIS_PORT
               value: "6379"
+            - name: WCS_SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: wynnsource-secrets
+                  key: sentry-dsn
+                  optional: true
           livenessProbe:
             httpGet: { path: /healthz, port: 8000 }
             initialDelaySeconds: 10

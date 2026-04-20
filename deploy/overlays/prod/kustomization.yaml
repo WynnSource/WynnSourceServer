@@ -18,3 +18,18 @@ patches:
       - op: replace
         path: /spec/replicas
         value: 2
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: WCS_SENTRY_ENVIRONMENT
+          value: production
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: WCS_SENTRY_TRACES_SAMPLE_RATE
+          value: "0.1"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: WCS_SENTRY_PROFILES_SAMPLE_RATE
+          value: "0.1"
