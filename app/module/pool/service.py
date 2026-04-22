@@ -3,7 +3,9 @@ import datetime
 from collections import defaultdict
 
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -14,7 +16,7 @@ from app.core.security.model import User
 from wynnsource import WynnSourceItem
 
 from .config import CONSENSUS_THRESHOLD, FUZZY_WINDOW, POOL_REFRESH_CONFIG, WEIGHT_MAP
-from .model import PoolRepository, PoolSubmission, PoolSubmissionRepository
+from .model import Pool, PoolRepository, PoolSubmission, PoolSubmissionRepository
 from .schema import VALID_REGIONS, LootPoolRegion, PoolSubmissionSchema, PoolType, RaidRegion
 
 
@@ -74,13 +76,43 @@ async def submit_pool_data(session: AsyncSession, data: PoolSubmissionSchema, us
     #  user can have one submission of each pool for each rotation
     existingSubmission = await submissionRepo.get_user_submission_for_rotation(user.id, pool.id)
 
+    is_first_of_rotation = existingSubmission is None
+
     if existingSubmission is not None:
         # we delete it infavor of the new submission
         await submissionRepo.delete(existingSubmission)
 
     submission.rotation = pool
-    pool.needs_recalc = True
     await submissionRepo.save(submission)
+
+    # Force UPDATE via SQL so recalc's FOR UPDATE lock serializes us, and the
+    # flag flip is guaranteed to hit the DB even when the loaded value was
+    # already True (ORM dirty tracking would skip the write).
+    await session.execute(sql_update(Pool).where(Pool.id == pool.id).values(needs_recalc=True))
+
+    if is_first_of_rotation:
+        _schedule_instant_pool_recalc(data.pool_type, data.region, data.page, pool.rotation_start)
+
+
+def _schedule_instant_pool_recalc(
+    pool_type: PoolType, region: str, page: int, rotation_start: datetime.datetime
+) -> None:
+    """Schedule a one-off recalc for a specific pool on first-of-rotation submission.
+
+    Debounced by job id: concurrent first-submissions to the same pool coalesce.
+    Delayed by 2s so the triggering transaction commits before recalc reads.
+    """
+    run_date = datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(seconds=2)
+    SCHEDULER.add_job(
+        compute_pool_consensus_for_pool,
+        args=[pool_type, region, page],
+        trigger=DateTrigger(run_date=run_date),
+        id=f"instant_recalc:pool:{pool_type.value}:{region}:{page}:{rotation_start.isoformat()}",
+        replace_existing=True,
+        coalesce=True,
+        misfire_grace_time=60,
+        max_instances=1,
+    )
 
 
 def calculate_submission_weight(user: User, fuzzy: bool = False) -> float:
@@ -114,8 +146,8 @@ async def compute_pool_consensus() -> int:
 
 
 BOOST_INTERVAL = datetime.timedelta(minutes=2)
-BOOST_LEAD = datetime.timedelta(minutes=30)  # reset 前多久开始
-BOOST_TAIL = datetime.timedelta(minutes=30)  # reset 后多久结束
+BOOST_LEAD = datetime.timedelta(minutes=30)
+BOOST_TAIL = datetime.timedelta(minutes=30)
 
 
 def _boost_job_id(pool_type: PoolType) -> str:
@@ -163,14 +195,21 @@ async def _schedule_boost_for_pool(pool_type: PoolType) -> None:
     )
 
 
-async def compute_pool_consensus_for_pool(pool_type: PoolType) -> int:
+async def compute_pool_consensus_for_pool(
+    pool_type: PoolType,
+    region: str | None = None,
+    page: int | None = None,
+) -> int:
     async with get_session() as session:
         # Step 1: Fetch all active pools that need consensus computation
         poolRepo = PoolRepository(session)
         active_pools = await poolRepo.list_pools(
             pool_type=pool_type,
+            region=region,
+            page=page,
             rotation_start=POOL_REFRESH_CONFIG[pool_type].get_rotation(datetime.datetime.now(tz=datetime.UTC)).start,
             needs_recalc=True,
+            for_update=True,
         )
         # The active pools should only differ in (region, page)
 

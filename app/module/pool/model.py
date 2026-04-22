@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from sqlalchemy import (
@@ -36,12 +36,10 @@ class Pool(Base):
     rotation_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     rotation_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    consensus_data: Mapped[list[bytes]] = mapped_column(
-        ARRAY(LargeBinary), nullable=False, default=[]
-    )
+    consensus_data: Mapped[list[bytes]] = mapped_column(ARRAY(LargeBinary), nullable=False, default=[])
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_updated: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=datetime.now
+        DateTime(timezone=True), server_default=func.now(), onupdate=lambda: datetime.now(tz=UTC)
     )
     confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
@@ -53,11 +51,7 @@ class Pool(Base):
         cascade="save-update, merge",
     )
 
-    __table_args__ = (
-        UniqueConstraint(
-            "pool_type", "region", "page", "rotation_start", name="uq_pool_rotation_key"
-        ),
-    )
+    __table_args__ = (UniqueConstraint("pool_type", "region", "page", "rotation_start", name="uq_pool_rotation_key"),)
 
 
 class PoolSubmission(Base):
@@ -86,9 +80,7 @@ class PoolSubmission(Base):
 
 
 class PoolRepository(BaseRepository):
-    async def get_by_key(
-        self, pool_type: PoolType, region: str, page: int, rotation_start: datetime
-    ) -> Pool | None:
+    async def get_by_key(self, pool_type: PoolType, region: str, page: int, rotation_start: datetime) -> Pool | None:
         query = select(Pool).where(
             Pool.pool_type == pool_type.value,
             Pool.region == region,
@@ -106,6 +98,7 @@ class PoolRepository(BaseRepository):
         rotation_start: datetime | None = None,
         needs_recalc: bool | None = None,
         order_by: Literal["rotation_start", "page"] | None = None,
+        for_update: bool = False,
     ) -> list[Pool]:
         query = select(Pool).options(selectinload(Pool.submissions))
         if pool_type is not None:
@@ -124,6 +117,11 @@ class PoolRepository(BaseRepository):
         elif order_by == "page":
             query = query.order_by(Pool.page)
 
+        if for_update:
+            # Lock parent rows so a concurrent submit's needs_recalc=True write
+            # blocks until recalc commits needs_recalc=False.
+            query = query.with_for_update()
+
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
@@ -136,9 +134,7 @@ class PoolRepository(BaseRepository):
         await self.session.delete(pool)
         await self.session.flush()
 
-    async def get_or_create_pool(
-        self, pool_type: PoolType, region: str, page: int, rotation: PoolRotation
-    ) -> Pool:
+    async def get_or_create_pool(self, pool_type: PoolType, region: str, page: int, rotation: PoolRotation) -> Pool:
         existing_pool = await self.get_by_key(
             pool_type=pool_type,
             region=region,
@@ -178,9 +174,7 @@ class PoolSubmissionRepository(BaseRepository):
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def get_user_submission_for_rotation(
-        self, user_id: int, rotation_id: int
-    ) -> PoolSubmission | None:
+    async def get_user_submission_for_rotation(self, user_id: int, rotation_id: int) -> PoolSubmission | None:
         query = select(PoolSubmission).where(
             PoolSubmission.user_id == user_id,
             PoolSubmission.rotation_id == rotation_id,

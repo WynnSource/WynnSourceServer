@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from sqlalchemy import (
@@ -34,7 +34,7 @@ class Gambit(Base):
     consensus_data: Mapped[list[str]] = mapped_column(ARRAY(String(255)), nullable=False, default=[])
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_updated: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=datetime.now
+        DateTime(timezone=True), server_default=func.now(), onupdate=lambda: datetime.now(tz=UTC)
     )
     confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
@@ -90,6 +90,7 @@ class GambitRepository(BaseRepository):
         rotation_start: datetime | None = None,
         needs_recalc: bool | None = None,
         order_by: Literal["rotation_start"] | None = None,
+        for_update: bool = False,
     ) -> list[Gambit]:
         query = select(Gambit).options(selectinload(Gambit.submissions))
         if region is not None:
@@ -101,6 +102,9 @@ class GambitRepository(BaseRepository):
 
         if order_by == "rotation_start":
             query = query.order_by(Gambit.rotation_start)
+
+        if for_update:
+            query = query.with_for_update()
 
         result = await self.session.execute(query)
         return list(result.scalars().all())

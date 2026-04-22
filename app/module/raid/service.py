@@ -1,7 +1,9 @@
 import datetime
 from collections import defaultdict
 
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -10,7 +12,7 @@ from app.core.security.model import User
 from app.module.pool.service import calculate_submission_weight
 
 from .config import FUZZY_WINDOW, GAMBIT_COUNT, GAMBIT_REGION, GAMBIT_SEPARATOR, get_gambit_rotation
-from .model import GambitRepository, GambitSubmission, GambitSubmissionRepository
+from .model import Gambit, GambitRepository, GambitSubmission, GambitSubmissionRepository
 from .schema import GambitSubmissionSchema
 
 
@@ -45,12 +47,36 @@ async def submit_gambit_data(session: AsyncSession, data: GambitSubmissionSchema
 
     # One submission per user per gambit rotation
     existing = await submission_repo.get_user_submission_for_gambit(user.id, gambit.id)
+    is_first_of_rotation = existing is None
+
     if existing is not None:
         await submission_repo.delete(existing)
 
     submission.gambit = gambit
-    gambit.needs_recalc = True
     await submission_repo.save(submission)
+
+    # Force UPDATE via SQL; see pool/service.py for rationale.
+    await session.execute(sql_update(Gambit).where(Gambit.id == gambit.id).values(needs_recalc=True))
+
+    if is_first_of_rotation:
+        _schedule_instant_gambit_recalc(gambit.region, gambit.rotation_start)
+
+
+def _schedule_instant_gambit_recalc(region: str, rotation_start: datetime.datetime) -> None:
+    """Schedule a one-off recalc for the current gambit on first-of-rotation submission.
+
+    Debounced by job id; delayed 2s so the submit transaction commits first.
+    """
+    run_date = datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(seconds=2)
+    SCHEDULER.add_job(
+        compute_gambit_consensus,
+        trigger=DateTrigger(run_date=run_date),
+        id=f"instant_recalc:gambit:{region}:{rotation_start.isoformat()}",
+        replace_existing=True,
+        coalesce=True,
+        misfire_grace_time=60,
+        max_instances=1,
+    )
 
 
 @SCHEDULER.scheduled_job(
@@ -67,6 +93,7 @@ async def compute_gambit_consensus() -> int:
             region=GAMBIT_REGION,
             rotation_start=rotation.start,
             needs_recalc=True,
+            for_update=True,
         )
 
         for gambit in active_gambits:
@@ -94,7 +121,7 @@ async def compute_gambit_consensus() -> int:
 
             for slot in range(GAMBIT_COUNT):
                 if not slot_weights[slot]:
-                    break  # No more data beyond this slot
+                    continue
 
                 best_entry = max(slot_weights[slot], key=slot_weights[slot].__getitem__)
                 best_weight = slot_weights[slot][best_entry]
