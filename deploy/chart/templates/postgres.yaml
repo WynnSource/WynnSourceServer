@@ -1,0 +1,45 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: wynnsource-pg
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    # Data outlives the app: ArgoCD must neither prune this nor cascade-delete
+    # it when the Application is removed.
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  instances: 1
+  resources:
+    {{- toYaml .Values.postgres.resources | nindent 4 }}
+  storage:
+    size: {{ .Values.postgres.storageSize }}
+    {{- with .Values.postgres.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  postgresql:
+    parameters:
+      max_connections: {{ .Values.postgres.maxConnections | quote }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgres.database }}
+      owner: {{ .Values.postgres.owner }}
+  {{- if .Values.postgres.backup.enabled }}
+  backup:
+    volumeSnapshot:
+      className: {{ required "postgres.backup.volumeSnapshotClassName is required when backup is enabled" .Values.postgres.backup.volumeSnapshotClassName }}
+  {{- end }}
+{{- if .Values.postgres.backup.enabled }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: wynnsource-pg-daily
+spec:
+  schedule: {{ .Values.postgres.backup.schedule | quote }}
+  backupOwnerReference: self
+  cluster:
+    name: wynnsource-pg
+  method: volumeSnapshot
+{{- end }}
+{{- end }}

@@ -1,0 +1,23 @@
+{{- if .Values.redis.enabled }}
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: wynnsource-redis
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    # Cache state is cheap but the CR owns a PVC; keep it out of prune and
+    # cascade deletion, consistent with the postgres cluster.
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  kubernetesConfig:
+    image: {{ .Values.redis.image }}
+    resources:
+      {{- toYaml .Values.redis.resources | nindent 6 }}
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.redis.storageSize }}
+{{- end }}
