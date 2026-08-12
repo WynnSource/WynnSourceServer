@@ -8,6 +8,9 @@ image:
 
 replicaCount: 1
 
+# Old ReplicaSets retained for rollback (Deployment default is 10).
+revisionHistoryLimit: 3
+
 # Rendered into the wynnsource-config ConfigMap, consumed via envFrom.
 # A change here rolls the deployment (checksum annotation).
 config:
