@@ -1,0 +1,64 @@
+# Safe defaults only. Anything cluster-specific (domains, storage classes,
+# snapshot classes, image tags) is supplied by the deploying repository.
+
+image:
+  repository: ghcr.io/wynnsource/wynnsource-server
+  # Required. Set by the deploying repo; kept current by argocd-image-updater.
+  tag: ""
+
+replicaCount: 1
+
+# Rendered into the wynnsource-config ConfigMap, consumed via envFrom.
+# A change here rolls the deployment (checksum annotation).
+config:
+  LEVEL: INFO
+  MAX_IP_RECORDS: "10"
+
+# Extra environment variables appended to the server container
+# (e.g. sentry environment / sample rates / version suffix).
+extraEnv: []
+
+# Secret consumed via envFrom; managed outside the chart (SealedSecret etc.).
+existingSecret: wynnsource-secrets
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+
+service:
+  port: 8000
+
+postgres:
+  enabled: true
+  database: wcs_db
+  owner: wynnsource
+  storageSize: 5Gi
+  # Empty = cluster default StorageClass.
+  storageClass: ""
+  maxConnections: "100"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+  backup:
+    enabled: false
+    # VolumeSnapshotClass name provided by the cluster.
+    volumeSnapshotClassName: ""
+    # Six-field cron; CNPG counts seconds first.
+    schedule: "0 15 3 * * *"
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+  storageSize: 1Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
