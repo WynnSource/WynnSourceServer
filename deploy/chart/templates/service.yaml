@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wynnsource-server
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: wynnsource-server
+spec:
+  type: ClusterIP
+  selector:
+    app: wynnsource-server
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
