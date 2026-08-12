@@ -5,6 +5,8 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
+  # Old ReplicaSets kept for rollback; the k8s default of 10 is noise.
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   replicas: {{ .Values.replicaCount }}
   selector:
     # Immutable on the pre-chart deployment; never change this.
