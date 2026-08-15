@@ -43,6 +43,9 @@ postgres:
   # Empty = cluster default StorageClass.
   storageClass: ""
   maxConnections: "100"
+  # Prometheus PodMonitor for postgres metrics (cluster scrapes it when
+  # unlabeled PodMonitor discovery is enabled).
+  podMonitor: false
   resources:
     requests:
       cpu: 50m
