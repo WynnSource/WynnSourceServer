@@ -17,6 +17,8 @@ spec:
     {{- with .Values.postgres.storageClass }}
     storageClass: {{ . }}
     {{- end }}
+  monitoring:
+    enablePodMonitor: {{ .Values.postgres.podMonitor }}
   postgresql:
     parameters:
       max_connections: {{ .Values.postgres.maxConnections | quote }}
