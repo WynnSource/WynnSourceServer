@@ -74,6 +74,7 @@ class RedisRateLimiter(BaseRateLimiter):
         response.headers["X-RateLimit-Reset"] = str(reset_after)
 
         if remaining < 0:
+            self.record_rejection(request)
             response.headers["X-RateLimit-Remaining"] = "0"
             response.headers["Retry-After"] = str(reset_after)
             raise HTTPException(

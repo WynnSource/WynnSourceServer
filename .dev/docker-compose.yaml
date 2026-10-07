@@ -14,3 +14,13 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
     restart: unless-stopped
+
+  # Optional: docker compose -f .dev/docker-compose.yaml --profile telemetry up -d
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "127.0.0.1:4318:4318"
+    profiles: [telemetry]

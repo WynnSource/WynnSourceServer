@@ -5,6 +5,7 @@ from starlette.status import HTTP_422_UNPROCESSABLE_CONTENT
 
 from app.core import metadata
 from app.core.db import SessionDep, get_session
+from app.core.metrics import SUBMISSION_ITEMS, SUBMISSIONS
 from app.core.rate_limiter import ip_based_key_func, user_based_key_func
 from app.core.router import DocedAPIRoute
 from app.core.security.auth import UserDep
@@ -31,6 +32,7 @@ async def submit_pool_data(data: list[PoolSubmissionSchema], user: UserDep) -> E
     """
     Endpoint for clients to submit pool data.
     """
+    SUBMISSION_ITEMS.record(len(data), {"module": "pool"})
     for submission in data:
         try:
             # We want to process each submission
@@ -38,7 +40,9 @@ async def submit_pool_data(data: list[PoolSubmissionSchema], user: UserDep) -> E
             async with get_session() as session:
                 await svc_submit_pool_data(session, submission, user)
         except ValueError:
+            SUBMISSIONS.add(1, {"module": "pool", "result": "rejected"})
             continue
+        SUBMISSIONS.add(1, {"module": "pool", "result": "accepted"})
 
     return EMPTY_RESPONSE
 
@@ -56,9 +60,7 @@ async def get_pools_by_type_and_region(
     Get pools by type and region.
     """
     try:
-        rotation = POOL_REFRESH_CONFIG[pool_type].get_rotation(
-            datetime.datetime.now(tz=datetime.UTC)
-        )
+        rotation = POOL_REFRESH_CONFIG[pool_type].get_rotation(datetime.datetime.now(tz=datetime.UTC))
         consensus_by_page = await get_pool_consensus(
             session,
             pool_type,

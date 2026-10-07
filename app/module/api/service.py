@@ -7,7 +7,7 @@ import orjson
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.log import LOGGER
-from app.core.scheduler import SCHEDULER
+from app.core.scheduler import scheduled_job
 from wynnsource import WynnSourceItem
 from wynnsource.common.enums_pb2 import RARITY_CRAFTED
 
@@ -73,7 +73,8 @@ class MappingStorage:
             self.mappings[mapping_type] = mapping
 
 
-@SCHEDULER.scheduled_job(
+# Refreshes this replica's in-memory MappingStorage, so it runs everywhere (no lock).
+@scheduled_job(
     IntervalTrigger(minutes=60),
     id="mapping_update_trigger",
     name="Mapping Update",

@@ -10,6 +10,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from app.config import DB_CONFIG
 from app.core.log import LOGGER
+from app.core.metrics import CACHE_REQUESTS, route_template
 from app.schemas.constants import INJECTED_NAMESPACE
 
 from .base import Cache
@@ -95,15 +96,18 @@ def cached[**P, R](
                 return await fn(*args, **kwargs)
 
             cache_key = _build_cache_key(request)
+            route = route_template(request)
 
             raw = await _cache.get(cache_key)
             if raw is not None:
+                CACHE_REQUESTS.add(1, {"route": route, "result": "hit"})
                 if response:
                     response.headers["X-Cache"] = "HIT"
                 if return_type is not None:
                     return _deserialize(raw, return_type)
                 return json.loads(raw)  # type: ignore[return-value]
 
+            CACHE_REQUESTS.add(1, {"route": route, "result": "miss"})
             if response:
                 response.headers["X-Cache"] = "MISS"
 

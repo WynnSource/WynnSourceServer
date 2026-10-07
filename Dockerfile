@@ -38,6 +38,9 @@ ENV UV_NO_CACHE=1
 
 USER 1000
 
-# Run the FastAPI application
+# Run uvicorn directly in exec form: fastapi-cli re-attaches its own rich log
+# handlers after importing the app, bypassing loguru (and LOG_JSON), and the
+# shell form keeps uvicorn from receiving SIGTERM, which skips the telemetry
+# flush on shutdown.
 EXPOSE 8000
-CMD fastapi run --forwarded-allow-ips="127.0.0.1,10.0.0.0/8,[::1]"
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "127.0.0.1,10.0.0.0/8,[::1]"]

@@ -5,8 +5,9 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from apscheduler.triggers.cron import CronTrigger
+from opentelemetry import trace
 
-from app.core.scheduler import SCHEDULER
+from app.core.scheduler import scheduled_job
 
 if TYPE_CHECKING:
     from app.module.pool.model import Pool
@@ -97,9 +98,10 @@ class Tier(Enum):
         return next_tier.score_range.min - score
 
 
-@SCHEDULER.scheduled_job(
+@scheduled_job(
     CronTrigger(hour=0, minute=0),  # Run daily at midnight
     id="update_user_scores",
+    lock_ttl=datetime.timedelta(minutes=30),
     misfire_grace_time=60,
     coalesce=True,
 )
@@ -160,6 +162,7 @@ async def update_user_scores():
                 f"User {user.id}: quality={quality:.3f}, activity={activity:.3f}, delta={delta}, new_score={new_score}"
             )
 
+        trace.get_current_span().set_attributes({"wcs.pools": len(all_current_pools), "wcs.users": len(users)})
         LOGGER.info(f"Updated scores for {len(users)} users")
 
 

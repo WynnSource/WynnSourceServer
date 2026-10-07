@@ -3,6 +3,8 @@ from collections.abc import Callable
 
 from fastapi import Request, Response
 
+from app.core.metrics import RATE_LIMITED, route_template
+
 type RateLimitKeyFunc = Callable[[Request], str]
 
 
@@ -37,6 +39,12 @@ class BaseRateLimiter(abc.ABC):
         self.limit = limit
         self.period = period
         self.key_func = key_func
+
+    def record_rejection(self, request: Request) -> None:
+        RATE_LIMITED.add(
+            1,
+            {"route": route_template(request), "key": "user" if self.key_func is user_based_key_func else "ip"},
+        )
 
     @abc.abstractmethod
     async def __call__(self, request: Request, response: Response) -> Response:

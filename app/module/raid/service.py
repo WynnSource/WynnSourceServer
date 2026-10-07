@@ -7,7 +7,8 @@ from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.core.scheduler import SCHEDULER
+from app.core.metrics import consensus_run
+from app.core.scheduler import SCHEDULER, instrument_job, scheduled_job
 from app.core.security.model import User
 from app.module.pool.service import calculate_submission_weight
 
@@ -68,8 +69,10 @@ def _schedule_instant_gambit_recalc(region: str, rotation_start: datetime.dateti
     Debounced by job id; delayed 2s so the submit transaction commits first.
     """
     run_date = datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(seconds=2)
+    # Traced but unlocked: triggered by a submission on this replica, and the
+    # FOR UPDATE in the recalc already serializes concurrent runs.
     SCHEDULER.add_job(
-        compute_gambit_consensus,
+        instrument_job("instant_recalc_gambit", compute_gambit_consensus),
         trigger=DateTrigger(run_date=run_date),
         id=f"instant_recalc:gambit:{region}:{rotation_start.isoformat()}",
         replace_existing=True,
@@ -79,13 +82,19 @@ def _schedule_instant_gambit_recalc(region: str, rotation_start: datetime.dateti
     )
 
 
-@SCHEDULER.scheduled_job(
+@scheduled_job(
     IntervalTrigger(minutes=5),
     id="compute_gambit_consensus",
+    lock_ttl=datetime.timedelta(seconds=270),
     misfire_grace_time=60,
     coalesce=True,
 )
 async def compute_gambit_consensus() -> int:
+    with consensus_run("gambit") as record:
+        return record(await _compute_gambit_consensus())
+
+
+async def _compute_gambit_consensus() -> int:
     async with get_session() as session:
         gambit_repo = GambitRepository(session)
         rotation = get_gambit_rotation(datetime.datetime.now(tz=datetime.UTC))

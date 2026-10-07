@@ -16,11 +16,21 @@ revisionHistoryLimit: 3
 config:
   LEVEL: INFO
   MAX_IP_RECORDS: "10"
+  # One JSON object per log line (trace_id/span_id included) for the log pipeline.
+  LOG_JSON: "true"
 
 # Extra environment variables appended to the server container
-# (e.g. sentry environment / sample rates / version suffix).
+# (e.g. sentry environment / profiling rate / version suffix).
 extraEnv: []
 
+# OpenTelemetry traces and metrics, pushed over OTLP/HTTP. Off while
+# otlpEndpoint is empty. Each pod reports service.instance.id = its pod name,
+# so replicas never share a metric series.
+telemetry:
+  # e.g. http://otel-collector.monitoring.svc:4318
+  otlpEndpoint: ""
+  # deployment.environment.name resource attribute (e.g. prod, dev).
+  environment: ""
 # Secret consumed via envFrom; managed outside the chart (SealedSecret etc.).
 existingSecret: wynnsource-secrets
 
