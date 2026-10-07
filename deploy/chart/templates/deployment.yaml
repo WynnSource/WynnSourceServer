@@ -35,6 +35,24 @@ spec:
             - secretRef:
                 name: {{ .Values.existingSecret }}
           env:
+            # Downward API first: later entries reference them via $(...).
+            # K8S_POD_NAME also identifies the holder of scheduler job locks.
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- with .Values.telemetry }}
+            {{- if .otlpEndpoint }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .otlpEndpoint | quote }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.instance.id=$(K8S_POD_NAME),k8s.pod.name=$(K8S_POD_NAME),k8s.namespace.name=$(K8S_NAMESPACE){{ with .environment }},deployment.environment.name={{ . }}{{ end }}"
+            {{- end }}
+            {{- end }}
             - name: POSTGRES_HOST
               valueFrom:
                 secretKeyRef:

@@ -1,6 +1,6 @@
 [project]
 name = "wynnsource_server"
-version = "0.1.5"
+version = "0.1.7"
 description = "The server component of WynnSource - a Wynncraft Crowdsourcing Mod."
 readme = "README.md"
 requires-python = ">=3.12, <4.0"
@@ -21,6 +21,13 @@ dependencies = [
     "httpx>=0.28.1",
     "jsonschema>=4.26.0",
     "loguru>=0.7.3",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.1",
+    "opentelemetry-instrumentation-fastapi>=0.66b1",
+    "opentelemetry-instrumentation-httpx>=0.66b1",
+    "opentelemetry-instrumentation-redis>=0.66b1",
+    "opentelemetry-instrumentation-sqlalchemy>=0.66b1",
+    "opentelemetry-instrumentation-system-metrics>=0.66b1",
+    "opentelemetry-sdk>=1.45.1",
     "orjson>=3.11.7",
     "pydantic-settings>=2.10.1",
     "redis>=7.1.1",
@@ -77,6 +84,9 @@ known-first-party = ["app", "tests/*", "wynnsource"]
 
 [tool.pytest.ini_options]
 addopts = "-n 4 --cov=app --cov-report xml:cov.xml"
+# Tests import `app` from the repo root; plain `pytest` would otherwise only
+# put each test file's directory on sys.path.
+pythonpath = ["."]
 
 [tool.uv.workspace]
 members = ["generated"]

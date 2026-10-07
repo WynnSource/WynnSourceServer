@@ -9,7 +9,8 @@ from app.config import DB_CONFIG
 from app.core.db import RedisClient, close_db, init_db
 from app.core.openapi import custom_openapi
 from app.core.scheduler import SCHEDULER
-from app.core.sentry import init_sentry
+from app.core.sentry import init_sentry, start_profiling, stop_profiling
+from app.core.telemetry import setup_telemetry, shutdown_telemetry
 from app.module.api.exception_handler import (
     generic_exception_handler,
     http_exception_handler,
@@ -28,6 +29,7 @@ async def lifespan(app: FastAPI):
     Lifespan context manager for application.
     """
     try:
+        start_profiling()
         SCHEDULER.start()
         await init_db()
         if DB_CONFIG.redis_dsn is not None:
@@ -38,6 +40,8 @@ async def lifespan(app: FastAPI):
         await close_db()
         if DB_CONFIG.redis_dsn is not None:
             await RedisClient.close()
+        stop_profiling()
+        shutdown_telemetry()
 
 
 app = FastAPI(
@@ -53,6 +57,7 @@ app = FastAPI(
         "url": "https://www.gnu.org/licenses/agpl-3.0.html",
     },
 )
+setup_telemetry(app)
 
 app.include_router(Router)
 app.exception_handler(HTTPException)(http_exception_handler)

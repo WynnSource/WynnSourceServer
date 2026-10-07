@@ -25,6 +25,9 @@ The server component of [WynnSource](https://github.com/WynnSource) — a Wynncr
 git clone --recurse-submodules https://github.com/WynnSource/WynnSourceServer.git
 cd WynnSourceServer
 
+# Start PostgreSQL and Redis on localhost (add `--profile telemetry` for a local OTel collector)
+docker compose -f .dev/docker-compose.yaml up -d
+
 # Generate protobuf code
 buf generate --template buf.gen.yaml
 
@@ -37,6 +40,22 @@ uv run alembic upgrade head
 # Start the development server
 uv run fastapi dev
 ```
+
+### Windows
+
+Everything above works natively on Windows. Differences:
+
+- **Containers without Docker:** `wslc` (WSL containers) has no compose, start the services individually:
+
+  ```powershell
+  wslc run -d --name wcs-db -e POSTGRES_DB=wcs_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:5432:5432 postgres:15-alpine
+  wslc run -d --name wcs-redis -p 127.0.0.1:6379:6379 redis:7-alpine
+  # Optional local OTel collector (prints spans and metrics: wslc logs -f wcs-otelcol)
+  wslc run -d --name wcs-otelcol -p 127.0.0.1:4318:4318 -v "$PWD\.dev\otel-collector.yaml:/etc/otelcol/config.yaml" otel/opentelemetry-collector-contrib:0.161.0 --config=/etc/otelcol/config.yaml
+  ```
+
+- **Non-UTF-8 console code page** (e.g. GBK on Chinese Windows): `fastapi dev` crashes printing its emoji banner. Set `$env:PYTHONUTF8 = "1"`, or run `uv run uvicorn app.main:app --reload` instead.
+- **A `.venv` created from WSL or a container** contains Linux symlinks (`lib64`) that Windows `uv` cannot remove. Delete it from WSL (`rm -rf .venv`) and run `uv sync` again.
 
 ### Environment Variables
 
@@ -51,7 +70,16 @@ uv run fastapi dev
 | `REDIS_PORT` | Redis port | `6379` |
 | `WCS_ADMIN_TOKEN` | Admin API token | None |
 | `LEVEL` | Log level | `DEBUG` |
+| `LOG_JSON` | Log one JSON object per line (with `trace_id`/`span_id`) instead of colored text | `false` |
 | `BETA_ALLOWED_VERSIONS` | Comma-separated allowed mod versions | `` |
+| `WCS_SENTRY_DSN` | Sentry DSN; errors and logs only, tagged with the OpenTelemetry trace id | None (disabled) |
+| `WCS_SENTRY_ENVIRONMENT` | Sentry environment | `local` |
+| `WCS_SENTRY_PROFILE_SESSION_SAMPLE_RATE` | Share of processes that run Sentry continuous profiling | `0` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP/HTTP collector, e.g. `http://localhost:4318`; enables OpenTelemetry traces and metrics | None (disabled) |
+| `OTEL_RESOURCE_ATTRIBUTES` | Extra resource attributes, e.g. `service.instance.id=…,deployment.environment.name=dev`. Give every replica a distinct `service.instance.id` | — |
+| `K8S_POD_NAME` | Holder name for the cross-replica scheduler job locks | hostname |
+
+Other standard `OTEL_*` variables (`OTEL_TRACES_SAMPLER`, `OTEL_METRIC_EXPORT_INTERVAL`, …) are honored. The default sampler is `parentbased_always_on`: requests follow the caller's sampling decision, scheduler jobs are always traced.
 
 ## Deploying to Kubernetes
 
