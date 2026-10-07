@@ -57,7 +57,9 @@ def instrument_job[**P, R](
     Jobs that only touch process-local state (in-memory caches, registering
     local jobs) must run on every replica and take no lock.
     """
-    attributes = {"job": job}
+    # Not "job": Prometheus reserves that label for service.name, which would
+    # overwrite it on OTLP ingestion.
+    attributes = {"job_name": job}
 
     @wraps(fn)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | None:
