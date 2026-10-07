@@ -46,6 +46,7 @@ class MemoryRateLimiter(BaseRateLimiter):
         response.headers["X-RateLimit-Reset"] = str(math.ceil(reset_after))
 
         if estimated >= self.limit:
+            self.record_rejection(request)
             response.headers["X-RateLimit-Remaining"] = "0"
             response.headers["Retry-After"] = str(math.ceil(reset_after))
             raise HTTPException(

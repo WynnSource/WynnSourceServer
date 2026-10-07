@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.core.log import LOGGER
-from app.core.scheduler import SCHEDULER
+from app.core.metrics import consensus_run
+from app.core.scheduler import SCHEDULER, instrument_job, scheduled_job
 from app.core.score import Tier
 from app.core.security.model import User
 from wynnsource import WynnSourceItem
@@ -100,9 +101,10 @@ def calculate_submission_weight(user: User, fuzzy: bool = False) -> float:
         return weight * (0.5 if fuzzy else 1.0)
 
 
-@SCHEDULER.scheduled_job(
+@scheduled_job(
     IntervalTrigger(minutes=20),
     id="compute_pool_consensus",
+    lock_ttl=datetime.timedelta(minutes=18),
     misfire_grace_time=60,
     coalesce=True,  # Coalesce multiple missed executions into one
 )
@@ -114,6 +116,7 @@ async def compute_pool_consensus() -> int:
 
 
 BOOST_INTERVAL = datetime.timedelta(minutes=2)
+BOOST_LOCK_TTL = BOOST_INTERVAL - datetime.timedelta(seconds=20)
 BOOST_LEAD = datetime.timedelta(minutes=30)  # reset 前多久开始
 BOOST_TAIL = datetime.timedelta(minutes=30)  # reset 后多久结束
 
@@ -122,7 +125,9 @@ def _boost_job_id(pool_type: PoolType) -> str:
     return f"compute_pool_consensus_boost:{pool_type.value}"
 
 
-@SCHEDULER.scheduled_job(
+# Registers this replica's local boost jobs, so it runs everywhere (no lock);
+# the boost jobs themselves write to the DB and are locked.
+@scheduled_job(
     CronTrigger(hour=0, minute=5),
     id="schedule_pool_boosts",
     misfire_grace_time=600,
@@ -148,7 +153,12 @@ async def _schedule_boost_for_pool(pool_type: PoolType) -> None:
     boost_end = reset_at + BOOST_TAIL
 
     SCHEDULER.add_job(
-        compute_pool_consensus_for_pool,
+        instrument_job(
+            "compute_pool_consensus_boost",
+            compute_pool_consensus_for_pool,
+            lock_ttl=BOOST_LOCK_TTL,
+            lock_key=_boost_job_id(pool_type),
+        ),
         args=[pool_type],
         trigger=IntervalTrigger(
             minutes=int(BOOST_INTERVAL.total_seconds() // 60),
@@ -164,6 +174,11 @@ async def _schedule_boost_for_pool(pool_type: PoolType) -> None:
 
 
 async def compute_pool_consensus_for_pool(pool_type: PoolType) -> int:
+    with consensus_run("pool", {"pool_type": pool_type.value}) as record:
+        return record(await _compute_pool_consensus_for_pool(pool_type))
+
+
+async def _compute_pool_consensus_for_pool(pool_type: PoolType) -> int:
     async with get_session() as session:
         # Step 1: Fetch all active pools that need consensus computation
         poolRepo = PoolRepository(session)

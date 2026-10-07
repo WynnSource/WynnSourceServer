@@ -5,7 +5,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.core.scheduler import SCHEDULER
+from app.core.metrics import consensus_run
+from app.core.scheduler import scheduled_job
 from app.core.security.model import User
 from app.module.pool.service import calculate_submission_weight
 
@@ -53,13 +54,19 @@ async def submit_gambit_data(session: AsyncSession, data: GambitSubmissionSchema
     await submission_repo.save(submission)
 
 
-@SCHEDULER.scheduled_job(
+@scheduled_job(
     IntervalTrigger(minutes=5),
     id="compute_gambit_consensus",
+    lock_ttl=datetime.timedelta(seconds=270),
     misfire_grace_time=60,
     coalesce=True,
 )
 async def compute_gambit_consensus() -> int:
+    with consensus_run("gambit") as record:
+        return record(await _compute_gambit_consensus())
+
+
+async def _compute_gambit_consensus() -> int:
     async with get_session() as session:
         gambit_repo = GambitRepository(session)
         rotation = get_gambit_rotation(datetime.datetime.now(tz=datetime.UTC))

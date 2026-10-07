@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.config import DB_CONFIG
 from app.core.log import LOGGER
+from app.core.telemetry import instrument_engine
 
 engine: AsyncEngine | None = None
 session_maker: async_sessionmaker[AsyncSession]
@@ -26,8 +27,9 @@ async def init_db() -> AsyncEngine:
     global engine, session_maker
     dsn = get_dsn()
     engine = create_async_engine(dsn, echo=False)
+    instrument_engine(engine)
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
-    LOGGER.debug(f"Database engine initialized with DSN: {dsn}")
+    LOGGER.debug(f"Database engine initialized for {engine.url.render_as_string(hide_password=True)}")
     return engine
 
 

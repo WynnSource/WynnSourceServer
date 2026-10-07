@@ -3,6 +3,7 @@ from base64 import b64decode
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.log import LOGGER
+from app.core.metrics import SUBMISSION_ITEMS, SUBMISSIONS
 from wynnsource import WynnSourceItem
 
 from .config import BETA_CONFIG
@@ -13,8 +14,10 @@ allowed_version = BETA_CONFIG.allowed_versions
 
 
 async def handle_item_submission(submission: NewItemSubmission, session: AsyncSession) -> None:
+    SUBMISSION_ITEMS.record(len(submission.items), {"module": "beta"})
     if not any(version in submission.mod_version for version in allowed_version):
         LOGGER.debug(f"Submission version {submission.mod_version} is not allowed, skipping submission")
+        SUBMISSIONS.add(len(submission.items), {"module": "beta", "result": "rejected"})
         return
     itemRepo = BetaItemRepository(session)
     succeeds = 0
@@ -27,6 +30,7 @@ async def handle_item_submission(submission: NewItemSubmission, session: AsyncSe
             existing = WynnSourceItem.FromString(existing.item) if existing else None
             if existing and item == existing:
                 LOGGER.debug(f"Item from submission is identical to existing item: {item.name}")
+                SUBMISSIONS.add(1, {"module": "beta", "result": "unchanged"})
                 continue
             if existing and item != existing:
                 LOGGER.debug(f"Item from submission is different from existing item: {item.name}," + " overwriting")
@@ -34,10 +38,11 @@ async def handle_item_submission(submission: NewItemSubmission, session: AsyncSe
                 item.gear.powders.extend(existing.gear.powders)
             await itemRepo.add_item(item)
             succeeds += 1
+            SUBMISSIONS.add(1, {"module": "beta", "result": "accepted"})
         except Exception as e:
             LOGGER.debug(f"Failed to add item from submission, error: {e}")
             # Silently ignore failed items
-            pass
+            SUBMISSIONS.add(1, {"module": "beta", "result": "rejected"})
 
     LOGGER.info(f"Processed {succeeds}/{len(submission.items)} items from beta submission")
 
@@ -71,8 +76,10 @@ async def get_beta_ingredients_by_name(session: AsyncSession, name: list[str]) -
 
 
 async def handle_patch_submission(submission: ItemPatchSubmission, session: AsyncSession) -> None:
+    SUBMISSION_ITEMS.record(len(submission.items), {"module": "beta_patch"})
     if not any(version in submission.mod_version for version in allowed_version):
         LOGGER.debug(f"Submission version {submission.mod_version} is not allowed, skipping submission")
+        SUBMISSIONS.add(len(submission.items), {"module": "beta_patch", "result": "rejected"})
         return
     itemRepo = BetaItemRepository(session)
     succeeds = 0
@@ -84,16 +91,18 @@ async def handle_patch_submission(submission: ItemPatchSubmission, session: Asyn
                     existing = await itemRepo.get_item(item.name)
                     if not existing:
                         LOGGER.debug(f"Item from patch submission does not exist in beta: {item.name}")
+                        SUBMISSIONS.add(1, {"module": "beta_patch", "result": "rejected"})
                         continue
                     existing_item = WynnSourceItem.FromString(existing.item)
                     del existing_item.gear.powders[:]
                     existing_item.gear.powders.extend(item.gear.powders)
                     await itemRepo.add_item(existing_item)
                     succeeds += 1
+                    SUBMISSIONS.add(1, {"module": "beta_patch", "result": "accepted"})
                 except Exception as e:
                     LOGGER.debug(f"Failed to patch item from submission, error: {e}")
                     # Silently ignore failed items
-                    pass
+                    SUBMISSIONS.add(1, {"module": "beta_patch", "result": "rejected"})
 
     LOGGER.info(f"Processed {succeeds}/{len(submission.items)} items from beta patch submission")
 

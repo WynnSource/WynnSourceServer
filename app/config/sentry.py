@@ -9,8 +9,9 @@ class SentryConfig(BaseSettings):
 
     dsn: str | None = Field(alias="WCS_SENTRY_DSN", default=None)
     environment: str = Field(alias="WCS_SENTRY_ENVIRONMENT", default="local")
-    traces_sample_rate: float = Field(alias="WCS_SENTRY_TRACES_SAMPLE_RATE", default=0.1)
-    profiles_sample_rate: float = Field(alias="WCS_SENTRY_PROFILES_SAMPLE_RATE", default=0.1)
+    # Tracing is OpenTelemetry's job; Sentry only profiles. Decided once per
+    # process: a sampled process profiles continuously for its whole life.
+    profile_session_sample_rate: float = Field(alias="WCS_SENTRY_PROFILE_SESSION_SAMPLE_RATE", default=0.0)
 
 
 SENTRY_CONFIG = SentryConfig()

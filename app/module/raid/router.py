@@ -5,6 +5,7 @@ from starlette.status import HTTP_422_UNPROCESSABLE_CONTENT
 
 from app.core import metadata
 from app.core.db import SessionDep, get_session
+from app.core.metrics import SUBMISSION_ITEMS, SUBMISSIONS
 from app.core.rate_limiter import ip_based_key_func, user_based_key_func
 from app.core.router import DocedAPIRoute
 from app.core.security.auth import UserDep
@@ -36,12 +37,15 @@ async def submit_gambit_data(data: list[GambitSubmissionSchema], user: UserDep) 
     Submit gambit data for the current rotation.
     Partial submissions are supported (1-4 gambits per region).
     """
+    SUBMISSION_ITEMS.record(len(data), {"module": "gambit"})
     for submission in data:
         try:
             async with get_session() as session:
                 await svc_submit_gambit_data(session, submission, user)
         except ValueError:
+            SUBMISSIONS.add(1, {"module": "gambit", "result": "rejected"})
             continue
+        SUBMISSIONS.add(1, {"module": "gambit", "result": "accepted"})
 
     return EMPTY_RESPONSE
 
