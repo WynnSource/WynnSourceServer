@@ -14,7 +14,7 @@ LOGGER = loguru.logger
 
 
 def _add_trace_context(record: "loguru.Record") -> None:
-    """Attach the active span, so Grafana can jump from a trace to its log lines."""
+    """Attach the active span, so log viewers can jump from a trace to its log lines."""
     ctx = trace.get_current_span().get_span_context()
     if ctx.is_valid:
         trace_id, span_id = trace.format_trace_id(ctx.trace_id), trace.format_span_id(ctx.span_id)
