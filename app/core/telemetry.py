@@ -76,7 +76,7 @@ def setup_telemetry(app: FastAPI) -> bool:
     if not TELEMETRY_CONFIG.enabled:
         return False
 
-    # Stable HTTP semantic conventions (http.route, url.path, ...), matching Traefik's spans.
+    # Stable HTTP semantic conventions (http.route, url.path, ...), matching current proxies' spans.
     os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "http")
 
     resource = _resource()
@@ -88,7 +88,7 @@ def setup_telemetry(app: FastAPI) -> bool:
     _meter_provider = MeterProvider(
         resource=resource,
         metric_readers=[PeriodicExportingMetricReader(OTLPMetricExporter())],
-        # HTTP RED metrics come from Tempo span metrics and Traefik.
+        # HTTP RED metrics are expected from span metrics in the tracing backend or from the proxy.
         views=[View(instrument_name="http.server.*", aggregation=DropAggregation())],
     )
     metrics.set_meter_provider(_meter_provider)

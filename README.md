@@ -81,87 +81,9 @@ Everything above works natively on Windows. Differences:
 
 Other standard `OTEL_*` variables (`OTEL_TRACES_SAMPLER`, `OTEL_METRIC_EXPORT_INTERVAL`, …) are honored. The default sampler is `parentbased_always_on`: requests follow the caller's sampling decision, scheduler jobs are always traced.
 
-## Deploying to Kubernetes
+## Deployment
 
-WynnSourceServer uses [Kustomize](https://kustomize.io/) overlays for deployment and [ArgoCD](https://argo-cd.readthedocs.io/) with [Image Updater](https://argocd-image-updater.readthedocs.io/) for GitOps.
-
-### Directory Structure
-
-```
-deploy/
-  base/                 # Shared manifests
-    deployment.yaml     # App deployment with health probes
-    service.yaml        # ClusterIP service on port 8000
-    postgres.yaml       # CNPG PostgreSQL cluster
-    redis.yaml          # Redis instance (via Redis Operator)
-    migration-job.yaml  # Alembic migration (ArgoCD sync hook)
-    kustomization.yaml
-  overlays/
-    dev/                # Dev environment (namespace: wynnsource-dev)
-      kustomization.yaml
-    prod/               # Prod environment (namespace: wynnsource, replicas: 2)
-      kustomization.yaml
-```
-
-### Cluster Prerequisites
-
-The following operators must be installed in the cluster:
-
-- [CloudNativePG](https://cloudnative-pg.io/) — PostgreSQL operator
-- [Redis Operator](https://github.com/OT-CONTAINER-KIT/redis-operator) — Redis operator
-- [ArgoCD Image Updater](https://argocd-image-updater.readthedocs.io/) — Automatic image updates
-
-### Step 1: Create Secrets
-
-Create the application secrets in the target namespace. Using [Sealed Secrets](https://sealed-secrets.netlify.app/) is recommended.
-
-```bash
-kubectl -n <namespace> create secret generic wynnsource-secrets \
-  --from-literal=WCS_ADMIN_TOKEN='<your-admin-token>'
-```
-
-### Step 2: Create ConfigMap
-
-```bash
-kubectl -n <namespace> create configmap wynnsource-config \
-  --from-literal=LEVEL='INFO' \
-  --from-literal=BETA_ALLOWED_VERSIONS='0.2.6, 0.2.7'
-```
-
-### Step 3: Create ArgoCD Application
-
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: wynnsource
-  namespace: argocd
-  annotations:
-    argocd-image-updater.argoproj.io/image-list: app=ghcr.io/wynnsource/wynnsource-server
-    argocd-image-updater.argoproj.io/app.update-strategy: newest-build
-    argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^dev-"
-    argocd-image-updater.argoproj.io/app.ignore-tags: "latest,dev-latest"
-spec:
-  project: default
-  source:
-    repoURL: https://github.com/WynnSource/WynnSourceServer.git
-    targetRevision: dev           # or master for production
-    path: deploy/overlays/dev     # or deploy/overlays/prod
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: wynnsource-dev     # or wynnsource
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
-```
-
-### Step 4: Configure Ingress
-
-Add an IngressRoute (or Ingress) pointing to the `wynnsource-server` service on port 8000. Make sure the `X-Real-IP` header is forwarded from the ingress controller for proper client IP logging and rate limiting.
+See [`deploy/`](deploy/README.md): a single-instance Docker Compose setup using the published image, and notes for running several replicas (for example on Kubernetes).
 
 ## Using the Schema (Protobuf)
 
