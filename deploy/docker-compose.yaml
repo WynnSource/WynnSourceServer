@@ -1,0 +1,88 @@
+# Single-instance deployment of the published image: server, one-shot
+# migration, PostgreSQL and Redis on one host. See README.md in this folder.
+#
+#   cp .env.example .env    # then set POSTGRES_PASSWORD and WCS_ADMIN_TOKEN
+#   docker compose up -d
+name: wynnsource
+
+x-postgres-env: &postgres-env
+  POSTGRES_HOST: db
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:-wcs_db}
+  POSTGRES_USER: ${POSTGRES_USER:-wynnsource}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+
+x-server-image: &server-image
+  image: ghcr.io/wynnsource/wynnsource-server:${WCS_VERSION:-latest}
+  # Published images are linux/amd64 only; ARM hosts run them under emulation.
+  platform: linux/amd64
+  # To run your own checkout instead of the published image:
+  # build: ..
+
+services:
+  server:
+    <<: *server-image
+    env_file: .env
+    environment:
+      <<: *postgres-env
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    # Loopback only: put a TLS reverse proxy in front (see README.md).
+    ports:
+      - "${WCS_BIND:-127.0.0.1}:${WCS_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Applies database migrations, then exits. The server starts only after it
+  # succeeds, so every `docker compose up` after a version bump migrates first.
+  migration:
+    <<: *server-image
+    command: ["uv", "run", "--no-dev", "alembic", "upgrade", "head"]
+    env_file: .env
+    environment:
+      <<: *postgres-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wcs_db}
+      POSTGRES_USER: ${POSTGRES_USER:-wynnsource}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker.
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  redis-data:
